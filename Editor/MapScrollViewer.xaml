@@ -1,0 +1,96 @@
+﻿<UserControl x:Class="ARKRegionsEditor.MapScrollViewer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:ARKRegionsEditor"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300">
+    <UserControl.Resources>
+        <ItemsPanelTemplate x:Key="MenuItemPanelTemplate">
+            <StackPanel Margin="-20,0,0,0" Background="White"/>
+        </ItemsPanelTemplate>
+        <Style x:Key="MenuItemWoIcon" TargetType="MenuItem">
+            <Setter Property="ItemsPanel" Value="{StaticResource MenuItemPanelTemplate}"/>
+        </Style>
+    </UserControl.Resources>
+    <DockPanel Background="AliceBlue">
+        <DockPanel DockPanel.Dock="Top">
+            <StackPanel x:Name="toolbar" DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,4,0,4" Visibility="Hidden">
+                <Label Content="Région:"/>
+                <TextBox x:Name="textboxRegion" IsReadOnly="True" VerticalAlignment="Center">
+                </TextBox>
+                <Button x:Name="buttonSave" Content=" Sauvegarder " Height="20" Margin="10,0,0,0" VerticalAlignment="Center" 
+                        Click="buttonSave_Click"/>
+                <Button x:Name="buttonCancel" Content=" Annuler " Height="20" Margin="10,0,0,0" VerticalAlignment="Center" 
+                        Click="buttonCancel_Click"/>
+            </StackPanel>
+        </DockPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ScrollViewer Name="scrollViewer" 
+                          Grid.Row="0" 
+                          Background="Black"
+                          VerticalScrollBarVisibility="Visible" 
+                          HorizontalScrollBarVisibility="Visible">
+                <Grid>
+                    <Viewbox Grid.Column="0" Grid.Row="0">
+                        <Grid>
+                            <Grid x:Name="gridMap" ContextMenuOpening="gridMap_ContextMenuOpening">
+                                <Grid.LayoutTransform>
+                                    <ScaleTransform x:Name="scaleTransform" ScaleX="0.08" ScaleY="0.08"/>
+                                </Grid.LayoutTransform>
+                                <Border BorderThickness="{Binding MapBorderWidth}" BorderBrush="{Binding MapBorderColor}">
+                                    <Image x:Name="mapImage"/>
+                                </Border>
+                                <Canvas x:Name="canvasGrid"/>
+                            </Grid>
+                            <Canvas x:Name="canvasRegion"/>
+                            <Canvas x:Name="canvasZones"/>
+                            <Canvas x:Name="canvasInfo">
+                                <StackPanel x:Name="popup" Orientation="Vertical" Visibility="Hidden"/>
+                                <Ellipse Name="pingEllipse" Width="50" Height="50" Stroke="Red" StrokeThickness="5" Visibility="Collapsed">
+                                    <Ellipse.Triggers>
+                                        <!-- Animates the circle's opacity. -->
+                                        <EventTrigger RoutedEvent="Ellipse.Unloaded">
+                                            <BeginStoryboard x:Name="pingStoryboard">
+                                                <Storyboard Completed="Storyboard_Completed">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetName="pingEllipse" 
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="0.0" To="1.0" Duration="0:0:2" 
+                                                        AutoReverse="False" 
+                                                        RepeatBehavior="1x" />
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetName="pingEllipse" 
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="1.0" To="1.0" Duration="0:0:5" 
+                                                        AutoReverse="False" 
+                                                        RepeatBehavior="1x" />
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetName="pingEllipse" 
+                                                        Storyboard.TargetProperty="Opacity"
+                                                        From="1.0" To="0.0" Duration="0:0:5" 
+                                                        AutoReverse="False" 
+                                                        RepeatBehavior="1x" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Ellipse.Triggers>
+                                </Ellipse>
+                            </Canvas>
+                        </Grid>
+                    </Viewbox>
+                </Grid>
+            </ScrollViewer>
+            <StatusBar Grid.Row="1">
+                <StatusBarItem>
+                    <TextBlock x:Name="labelInfo" Text="" FontSize="20" />
+                </StatusBarItem>
+            </StatusBar>
+        </Grid>
+    </DockPanel>
+</UserControl>

@@ -1,0 +1,97 @@
+﻿{
+  "list": [
+    "The Island",
+    "Scorched Earth",
+    "Aberration",
+    "Extinction",
+    "Genesis: Part 1",
+    "Genesis: Part 2",
+    "-",
+    "The Center",
+    "Ragnarok",
+    "Valguero",
+    "Crystal Isles",
+    "Lost Island",
+    "Fjordur"
+  ],
+  "maps": [
+    {
+      "name": "The Island",
+      "map": "The_Island_Topographic_Map.jpg",
+      "coordinateBorders": { "top": 7.2, "left": 7.2, "bottom": 92.8, "right": 92.8 },
+      "regions": "The_Island_Regions.json",
+      "biomes": "TheIslandSubMaps/biomes.json"
+    },
+    {
+      "name": "The Center",
+      "map": "The_Center_Topographic_Map.jpg",
+      "coordinateBorders": { "top": -2.5, "left": 1, "bottom": 101, "right": 105 },
+      "regions":"The_Center_Regions.json",
+      "biomes": "TheCenter/biomes.json"
+    },
+    {
+      "name": "Scorched Earth",
+      "map": "Scorched_Earth_Topographic_Map.jpg",
+      "coordinateBorders": { "top": 7.2, "left": 7.2, "bottom": 92.8, "right": 92.8 },
+      "regions": "Scorched_Earth_Regions.json",
+      "biomes": "ScorchedEarth/biomes.json"
+    },
+    {
+      "name": "Ragnarok",
+      "map": "Ragnarok_Ocean_Topographic_Map.jpg",
+      "regions": "Ragnarok_Regions.json",
+      "biomes": "Ragnarok/biomes.json"
+    },
+    {
+      "name": "Aberration",
+      "map": "Aberration_Topographic_Map.jpg",
+      "coordinateBorders": { "top": 7.2, "left": 7.2, "bottom": 92.8, "right": 92.8 },
+      "regions": "Aberration_Regions.json",
+      "biomes": "Aberration/biomes.json"
+    },
+    {
+      "name": "Extinction",
+      "map": "Extinction_Topographic_Map.jpg",
+      "regions": "Extinction_Regions.json",
+      "biomes": "Extinction/biomes.json"
+    },
+    {
+      "name": "Valguero",
+      "map": "Valguero_Topographic_Map.jpg",
+      "coordinateBorders": { "top": 0.1, "left": 0.1, "bottom": 99.9, "right": 99.9 },
+      "regions": "Valguero_Regions.json",
+      "biomes": "Valguero/biomes.json"
+    },
+    {
+      "name": "Genesis: Part 1",
+      "map": "Genesis_Part_1_Topographic_Map.jpg",
+      "regions": "Genesis_Part_1_Regions.json",
+      "biomes": "Genesis/biomes.json"
+    },
+    {
+      "name": "Genesis: Part 2",
+      "map": "Genesis_Part_2_Map.jpg",
+      "regions": "Genesis_Part_2_Regions.json",
+      "biomes": "Genesis2/biomes.json"
+    },
+    {
+      "name": "Crystal Isles",
+      "map": "Crystal_Isles_Topographic_Map.jpg",
+      "coordinateBorders": { "top": 10.5, "left": 14, "bottom": 86, "right": 87 },
+      "regions": "Crystal_Isles_Regions.json",
+      "biomes": "CrystalIsles-CrystalIsles/CrystalIsles/biomes.json"
+    },
+    {
+      "name": "Lost Island",
+      "map": "Lost_Island_Map.jpg",
+      "regions": "Lost_Island_Regions.json",
+      "biomes": "LostIsland/biomes.json"
+    },
+    {
+      "name": "Fjordur",
+      "map": "Fjordur_Topographic_Map.jpg",
+      "regions": "Fjordur_Regions.json",
+      "biomes": "FjordurOfficial-FjordurOfficial/FjordurOfficial/biomes.json"
+    }
+  ]
+}

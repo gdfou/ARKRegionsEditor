@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!-- syntaxdefinition for Json -->
+
+<SyntaxDefinition name ="Json" extensions = ".json">
+
+	<Properties>
+		<Property name="LineComment" value="//"/>
+	</Properties>
+
+	<Digits name ="Digits" bold ="false" italic ="false" color ="Blue"/>
+
+	<RuleSets>
+		<RuleSet ignorecase = "false">
+			<Delimiters>=!&gt;&lt;+-/*%&amp;|^~.}{,;][?:</Delimiters>
+
+			<Span name ="LineComment" bold ="false" italic ="false" color ="DarkSlateGray" stopateol ="true">
+				<Begin>//</Begin>
+			</Span>
+
+			<Span name ="BlockComment" bold ="false" italic ="false" color ="DarkSlateGray" stopateol ="false">
+				<Begin>/*</Begin>
+				<End>*/</End>
+			</Span>
+
+			<Span name ="String" bold ="false" italic ="false" color ="Green" stopateol ="false" escapecharacter="\">
+				<Begin>&quot;</Begin>
+				<End>&quot;</End>
+			</Span>
+
+			<Span name = "Character" bold = "false" italic = "false" color = "Sienna" stopateol = "true" escapecharacter="\">
+				<Begin>&apos;</Begin>
+				<End>&apos;</End>
+			</Span>
+
+			<KeyWords name ="JsonLiterals" bold="false" italic = "false" color = "Blue">
+				<Key word = "false" />
+				<Key word = "null" />
+				<Key word = "true" />
+				<Key word = "NaN" />
+				<Key word = "Infinity" />
+			</KeyWords>
+		</RuleSet>
+	</RuleSets>
+</SyntaxDefinition>

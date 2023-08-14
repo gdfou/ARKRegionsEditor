@@ -1,0 +1,182 @@
+﻿<Window
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:ARKRegionsEditor"
+        xmlns:av="http://schemas.microsoft.com/expression/blend/2008" 
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+        xmlns:syntaxEdit="clr-namespace:SyntaxEdit;assembly=SyntaxEdit"
+        mc:Ignorable="av" 
+        x:Class="ARKRegionsEditor.MainWindow"
+        Title="ARK Wiki Regions Editor"
+        Width="1200"
+        Height="600"
+        Background="AliceBlue"
+        Loaded="MainWindow_Loaded" 
+        Closing="Window_Closing"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <Style TargetType="{x:Type ListViewItem}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Warning}" Value="true">
+                    <Setter Property="Background" Value="lightgreen" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Error}" Value="true">
+                    <Setter Property="Background" Value="Coral" />
+                </DataTrigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="FontStyle" Value="Italic" />
+                    <Setter Property="FontWeight" Value="Bold" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <DockPanel>
+        <DockPanel DockPanel.Dock="Top">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,4,0,4">
+                <Label Content="Carte:"/>
+                <ComboBox x:Name="comboBoxMap" SelectionChanged="comboBoxMap_SelectionChanged" Margin="4" Width="150"/>
+                <Button x:Name="buttonLoadRegions" Content=" Charger régions " Height="20" Margin="4,0,0,0" VerticalAlignment="Center" 
+                        IsEnabled="False" 
+                        Click="buttonLoadRegions_Click"/>
+                <Button x:Name="buttonLoadBiomes" Content=" Charger biomes " Height="20" Margin="4,0,0,0" VerticalAlignment="Center" 
+                        IsEnabled="False" 
+                        Click="buttonLoadBiomes_Click"/>
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="10,4,10,4"/>
+                <Label Content="Couleur des zones:"/>
+                <ComboBox x:Name="comboBoxZonesColor" Margin="0,4,0,4" SelectionChanged="comboBoxZonesColor_SelectionChanged" Width="100" Cursor="Hand">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Rectangle Fill="{Binding Name}" Width="16" Height="16" Margin="0,2,5,2" />
+                                <TextBlock Text="{Binding Label}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Label Content="Transparence:"/>
+                <Slider x:Name="sliderZonesOpacity" Width="120" VerticalAlignment="Center" Maximum="100" Minimum="20" 
+                        ValueChanged="sliderZonesOpacity_ValueChanged" Cursor="Hand"/>
+                <CheckBox x:Name="checkboxViewRegion" Content="Région" Margin="10,4,4,4" VerticalAlignment="Center" 
+                          Checked="checkboxViewRegion_Checked" Unchecked="checkboxViewRegion_Checked"/>
+                <CheckBox x:Name="checkboxRegionWikiStyle" Content="Style Wiki" FontStyle="Italic" Margin="0,4,10,4" VerticalAlignment="Center" 
+                          Checked="checkboxViewRegionWikiStyle_Checked" Unchecked="checkboxViewRegionWikiStyle_Checked"/>
+                <CheckBox x:Name="checkboxViewZone" Content="Zones" Margin="10,4,10,4" VerticalAlignment="Center" 
+                          Checked="checkboxViewZone_Checked" Unchecked="checkboxViewZone_Checked"/>
+            </StackPanel>
+        </DockPanel>
+        <DockPanel DockPanel.Dock="Top">
+            <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Margin="0,4,0,4" VerticalAlignment="Center">
+                <CheckBox x:Name="checkboxRemoveInsideZone" Content="Biome: Supprimer les zones incluses dans une zone" IsChecked="True"/>
+            </StackPanel>
+        </DockPanel>
+        <TabControl x:Name="tabControlMain">
+            <TabItem x:Name="tabItemDataRegions" Header="Donnée:Regions">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Background="AliceBlue">
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,4,0,4" VerticalAlignment="Center" Cursor="Hand">
+                            <CheckBox x:Name="checkBoxTranslate" Content="Traduction" VerticalAlignment="Center" IsEnabled="False" Cursor="Hand"/>
+                            <Button x:Name="buttonUpdateFromRegions" Content=" Mettre à jour à partir des régions " Height="20" Margin="4" 
+                                    Click="buttonUpdateFromRegions_Click" IsEnabled="False"/>
+                            <Button x:Name="buttonUpdateFromBiomes" Content=" Mettre à jour à partir des biomes " Height="20" Margin="4" 
+                                    Click="buttonUpdateFromBiomes_Click" IsEnabled="False"/>
+                            <Button x:Name="buttonSaveRegions" Content=" Sauvegarder " Height="20" Margin="4" 
+                                    Click="buttonSaveRegions_Click" IsEnabled="False"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <syntaxEdit:TextEditor
+				            Name="textEditorRegions"
+				            FontFamily="Cascadia Code"
+				            FontSize="10pt"
+				            SyntaxHighlighting="Json" TextChanged="textEditorRegions_TextChanged"/>
+                </DockPanel>
+            </TabItem>
+            <TabItem x:Name="tabItemConsole" Header="Console">
+                <TextBox x:Name="textboxConsole" FontFamily="Consolas" IsReadOnly="True" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
+            </TabItem>
+            <TabItem x:Name="tabItemMap" Header="Carte">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition x:Name="LeftColumn" Width="100*"/>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition x:Name="RightColumn" Width="335*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TabControl x:Name="tabControlMap" Grid.Column="0">
+                        <TabItem x:Name="tabItemRegions" Header="Régions">
+                            <ListView x:Name="listviewRegions" SelectionMode="Single" 
+                                      SelectionChanged="listviewRegions_SelectionChanged" 
+                                      MouseDoubleClick="listviewRegions_MouseDoubleClick"
+                                      KeyUp="listviewRegions_KeyUp" 
+                                      AllowDrop="True"
+                                      PreviewMouseLeftButtonDown="listviewRegions_PreviewMouseLeftButtonDown"
+                                      PreviewMouseLeftButtonUp="listviewRegions_PreviewMouseLeftButtonUp"
+                                      PreviewMouseMove="listviewRegions_MouseMove"
+                                      DragEnter="listviewRegions_DragEnter"
+                                      DragLeave="listviewRegions_DragLeave"
+                                      Drop="listviewRegions_Drop">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Width="180" DisplayMemberBinding="{Binding Label}">
+                                            <GridViewColumn.Header>
+                                                <GridViewColumnHeader Tag="Label" Click="listviewRegionsColumnHeader_Click">Nom</GridViewColumnHeader>
+                                            </GridViewColumn.Header>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="listviewRegionsColumnName" Width="40" DisplayMemberBinding="{Binding Name}">
+                                            <GridViewColumn.Header>
+                                                <GridViewColumnHeader Tag="Name" Click="listviewRegionsColumnHeader_Click">Name</GridViewColumnHeader>
+                                            </GridViewColumn.Header>
+                                        </GridViewColumn>
+                                        <GridViewColumn Width="60" DisplayMemberBinding="{Binding ZoneCount}">
+                                            <GridViewColumn.Header>
+                                                <GridViewColumnHeader Tag="ZoneCount" Click="listviewRegionsColumnHeader_Click">Zones</GridViewColumnHeader>
+                                            </GridViewColumn.Header>
+                                        </GridViewColumn>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </TabItem>
+                        <TabItem x:Name="tabItemBiomes" Header="Biomes">
+                            <ListView x:Name="listviewBiomes" SelectionMode="Single" 
+                                      SelectionChanged="listviewBiomes_SelectionChanged" 
+                                      MouseDoubleClick="listviewBiomes_MouseDoubleClick"
+                                      KeyUp="listviewBiomes_KeyUp">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Nom" Width="180" DisplayMemberBinding="{Binding Label}" />
+                                        <GridViewColumn Header="Zones" Width="50" DisplayMemberBinding="{Binding ZoneCount}" />
+                                        <GridViewColumn Header="Priorité" Width="50" DisplayMemberBinding="{Binding Priority}" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </TabItem>
+                        <TabItem x:Name="tabItemZones" Header="Zones">
+                            <ListView x:Name="listviewZones" SelectionMode="Single" FontFamily="Consolas" 
+                                     SelectionChanged="listviewZones_SelectionChanged" 
+                                     MouseDoubleClick="listviewZones_MouseDoubleClick"
+                                     KeyUp="listviewZones_KeyUp">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Lon" Width="50" DisplayMemberBinding="{Binding Lon}" />
+                                        <GridViewColumn Header="Lat" Width="50" DisplayMemberBinding="{Binding Lat}" />
+                                        <GridViewColumn Header="Lon Len" Width="60" DisplayMemberBinding="{Binding LonLength}" />
+                                        <GridViewColumn Header="Lat Len" Width="60" DisplayMemberBinding="{Binding LatLength}" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </TabItem>
+                    </TabControl>
+                    <GridSplitter x:Name="splitter" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" ShowsPreview="True" Width="5"/>
+                    <local:MapScrollViewer x:Name="mapViewer" Grid.Column="2"/>
+                    <StatusBar Grid.Row="1" Grid.ColumnSpan="3">
+                        <StatusBarItem>
+                            <TextBlock x:Name="labelInfo" Text=""/>
+                        </StatusBarItem>
+                    </StatusBar>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

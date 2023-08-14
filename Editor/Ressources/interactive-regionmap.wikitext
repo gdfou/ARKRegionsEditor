@@ -1,0 +1,49 @@
+{| class="wikitable interactive-regionmap-table"
+|-
+|{{Interactive Regionmap|Ragnarok}}
+|-
+| Régions de la carte du DLC Ragnarok
+|}
+
+{| class="wikitable interactive-regionmap-table"
+|-
+| {{Interactive Regionmap|Aberration|600}}
+|-
+| Régions d'Aberration
+|}
+
+{| class="wikitable interactive-regionmap-table"
+|-
+| {{Interactive Regionmap|The Island|600}}
+|-
+| Régions de The Island
+|}
+
+{| class="wikitable" style="float:right; margin-left:20px;"
+|-
+|{{Interactive Regionmap|Genesis: Part 1|600}}
+|-
+| Régions de Genesis: Part 1
+|}
+
+<includeonly><!--
+-->{{#vardefine:imageName|{{{image|{{#if:{{#var:ModName}}
+	| Mod {{#var:ModName}} Map.jpg
+	| {{#switch:{{{1}}}
+		| Genesis: Part 2
+		| Aberration = {{{1}}} Map.jpg
+		| Crystal Isles
+		| Extinction
+		| Ragnarok
+		| Scorched Earth
+		| The Center
+		| The Island
+		| Valguero
+		|  Genesis: Part 1 = {{{1}}} Topographic Map.jpg
+		| {{{1}}} map.jpg
+	}}
+}}}}}}}<!--
+-->{{#ifeq:{{NAMESPACENUMBER}}|10004|{{#vardefine:imageName|Mod {{#var:ModName}} {{#var:imageName}}}}}}<!--
+-->{{#vardefine:imageName|{{#replace:{{#var:imageName}}|:|}}}}<!--
+-->{{#vardefine:imageName|{{Ifpageexists|File:{{#var:imageName}}|{{#var:imageName}}|Blank.png}}}}<!--
+--><div class="interactive-regionmap" style="--size:{{{size|600}}}px" data-map="{{{1|{{ROOTPAGENAME}}}}}" data-page-name="{{{dataPage|Data:Regions/{{{1|{{PAGENAME}}}}}}}}" {{#if:{{{highlight|}}}|data-highlight="{{{highlight}}}"}} {{#if:{{{cacheId|}}}|data-cache-id="{{{cacheId}}}"}}>[[File:{{#var:imageName}}|{{{size|600}}}px|link=]]</div></includeonly><noinclude>{{doc}}</noinclude>
