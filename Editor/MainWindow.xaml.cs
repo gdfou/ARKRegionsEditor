@@ -37,6 +37,9 @@ namespace ARKRegionsEditor
         ArkWikiJsonRegions jsonRegions_;
         GridViewColumnHeader listViewRegionsSortCol_;
         SortAdorner listViewRegionsSortAdorner_;
+        SortDescription listViewRegionsSortDescription_;
+        int saveCounter_;
+        int lockKeyboard_;
 
         const string ShooterGame_archive = @"C:\Program Files (x86)\Steam\steamapps\common\ARK\ShooterGame\Content\Localization\Game\fr\ShooterGame.archive";
 
@@ -153,6 +156,7 @@ namespace ARKRegionsEditor
                         tabItemBiomes.IsEnabled = false;
                         tabControlMap.Tag = tabControlMap.SelectedItem;
                         tabControlMap.SelectedItem = tabItemZones;
+                        labelInfo.Text = "mode édition";
                         break;
                     }
 
@@ -165,14 +169,19 @@ namespace ARKRegionsEditor
                             tabControlMap.SelectedItem = tabControlMap.Tag;
                             tabControlMap.Tag = null;
                         }
+                        labelInfo.Text = "";
                         break;
                     }
 
                 case "UpdateRegion":
                     {
-                        var region = e.Object as Region;
-                        CheckZones(region, false);
-                        region.Update();
+                        RemoveZones(e.Region);
+                        CheckZones(e.Region, false);
+                        e.Region.Update();
+                        LoadZones(e.Region);
+                        saveCounter_++;
+                        labelInfo.Text = $"Mise à jour de la région '{e.Region.Label}'";
+                        buttonSaveRegions.IsEnabled = true;
                         break;
                     }
 
@@ -187,6 +196,20 @@ namespace ARKRegionsEditor
 
         private void Window_Closing(object sender, CancelEventArgs e)
         {
+            if (mapViewer.EditMode)
+            {
+                MessageBox.Show("Mode édition en cours, impossible de fermer l'application.");
+                e.Cancel = true;
+                return;
+            }
+            if (saveCounter_ > 0)
+            {
+                if (MessageBox.Show("Voulez-vous sauvegarder vos modifications ?", "Sauvegarde", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    UpdateRegions();
+                    SaveRegions();
+                }
+            }
             // Save config
             SaveMainConfig();
         }
@@ -289,6 +312,11 @@ namespace ARKRegionsEditor
                 mapViewer.Clear();
 
                 mapViewer.MapName = map_item.name;
+                if (map_item.map_border != null)
+                {
+                    mapViewer.MapBorderWidth = map_item.map_border.width;
+                    mapViewer.MapBorderColor = (SolidColorBrush)new BrushConverter().ConvertFrom(map_item.map_border.color);
+                }
                 if (map_item.coordinateBorders != null)
                 {
                     mapViewer.MapSize = new MapSize(map_item.coordinateBorders.left, map_item.coordinateBorders.top,
@@ -297,6 +325,10 @@ namespace ARKRegionsEditor
                 if (map_item.map != null)
                 {
                     mapViewer.MapImage = $"ARKRegionsEditor.Ressources.{map_item.map}";
+                    if (map_item.map_border.width == null)
+                    {
+                        mapViewer.AutoAdjustBorder();
+                    }
                 }
                 if (map_item.regions != null || map_item.regionsFile != null)
                 {
@@ -442,23 +474,6 @@ namespace ARKRegionsEditor
                     // [longitude, latitude, longeur_longitude, longeur_latitude]
                     foreach (var zone_def in region.Value)
                     {
-#if false
-                        var zone = new MapZone()
-                        {
-                            Lon = (float)Math.Round(zone_def[0]),
-                            Lat = (float)Math.Round(zone_def[1]),
-                            LonLength = (float)Math.Round(zone_def[2]),
-                            LatLength = (float)Math.Round(zone_def[3])
-                        };
-                        if (zone.LonLength > 0 && zone.LatLength > 0)
-                        {
-                            region_item.zones.Add(zone);
-                        }
-                        else
-                        {
-                            ConsoleWriteLine($"région '{region_item.Label}': zone ({zone.Lat};{zone.Lon};{zone.LatLength};{zone.LonLength}) supprimée car trop petite");
-                        }
-#else
                         var zone = new MapZone()
                         {
                             Lon = zone_def[0],
@@ -466,8 +481,11 @@ namespace ARKRegionsEditor
                             LonLength = zone_def[2],
                             LatLength = zone_def[3]
                         };
+                        if (checkboxRoundZone.IsChecked == true)
+                        {
+                            zone.RoundCoordinates();
+                        }
                         region_item.zones.Add(zone);
-#endif
                     }
                     CheckZones(region_item, false);
                     CheckIntersects(region_item);
@@ -486,24 +504,77 @@ namespace ARKRegionsEditor
                 {
                     regions_list.Remove(item);
                 }
-
-                // Remove inside
+                int zones_ctr = 0;
                 foreach (var item in regions_list)
                 {
-                    if (checkboxRemoveInsideZone.IsChecked == true)
-                    {
-                        RemoveInsideZones(item);
-                    }
                     regionsList_.Add(item);
+                    zones_ctr += item.ZoneCount;
                 }
+                BuildRegionPriority();
+                listviewRegionsSort();
                 ConsoleWriteLine($"{regionsList_.Count} régions chargées");
+                ConsoleWriteLine($"{zones_ctr} zones chargées");
                 // Mise à jour en différé sinon ça plante
                 var timer_ur = new Timer(TimerCallback_UpdateRegions, null, 10, 0);
                 buttonUpdateFromRegions.IsEnabled = true;
                 tabControlMap.SelectedItem = tabItemRegions;
+                mapViewer.RescaleCanvas(mapViewer.Scale);
             }
             catch (Exception ex) {
                 MessageBox.Show("Error loading region ! ({0})", ex.Message);
+            }
+        }
+
+        private void SaveDataRegions()
+        {
+            // Check if a file exists
+            var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
+            if (map.regionsFile == null)
+            {
+                if (map.regions != null)
+                {
+                    map.regionsFile = map.regions;
+                }
+                else
+                {
+                    map.regionsFile = map.name.Replace(' ', '_') + "_Regions.json";
+                }
+                if (cfg_.maps == null)
+                {
+                    cfg_.maps = new Dictionary<string, MapListJsonItem>();
+                }
+                MapListJsonItem map_def = null;
+                if (cfg_.maps.ContainsKey(map.name))
+                {
+                    map_def = cfg_.maps[map.name];
+                }
+                else
+                {
+                    map_def = new MapListJsonItem()
+                    {
+                        regions = map.regionsFile
+                    };
+                    cfg_.maps[map.name] = map_def;
+                }
+                SaveMainConfig();
+            }
+            File.WriteAllText(map.regionsFile, textEditorRegions.Text);
+            saveCounter_ = 0;
+            buttonSaveRegions.IsEnabled = false;
+        }
+
+        private void SaveRegions()
+        {
+            UpdateRegions();
+            SaveDataRegions();
+        }
+
+        void BuildRegionPriority()
+        {
+            int priority = 0;
+            foreach (var region in regionsList_)
+            {
+                region.Priority = priority++;
             }
         }
 
@@ -515,6 +586,7 @@ namespace ARKRegionsEditor
         public void UpdateRegions()
         {
             buttonSaveRegions.IsEnabled = false;
+            buttonSaveDataRegions.IsEnabled = false;
             if (jsonRegions_ != null)
             {
                 string str;
@@ -575,7 +647,8 @@ namespace ARKRegionsEditor
                 lockInterface_++;
                 textEditorRegions.Text = String.Join("\n", json_lines);
                 lockInterface_--;
-                buttonSaveRegions.IsEnabled = true;
+                //buttonSaveRegions.IsEnabled = true;
+                buttonSaveDataRegions.IsEnabled = true;
             }
         }
 
@@ -648,15 +721,6 @@ namespace ARKRegionsEditor
             foreach (var item in empty_list)
             {
                 biomes_list.Remove(item);
-            }
-
-            // Remove inside
-            foreach (var item in biomes_list)
-            {
-                if (checkboxRemoveInsideZone.IsChecked == true)
-                {
-                    RemoveInsideZones(item);
-                }
             }
 
             // Chargement par ordre de priortité et non alphabétique
@@ -772,7 +836,6 @@ namespace ARKRegionsEditor
             int zone_intersect = 0;
             if (selection)
                 mapViewer.ClearHighlightZones();
-            var list_to_remove = new List<MapZone>();
             region.Error = false;
             region.Warning = false;
             foreach (var zone in region.zones)
@@ -799,9 +862,9 @@ namespace ARKRegionsEditor
                     }
                 }
             }
-            foreach (var item in list_to_remove)
+            if (selection == false && checkboxRemoveInsideZone.IsChecked == true)
             {
-                region.zones.Remove(item);
+                RemoveInsideZones(region);
             }
             if (selection)
                 labelInfo.Text = $"Zones chargées: {zonesList_.Count}, zones incluses : {zone_inside}, zones avec intersection : {zone_intersect}";
@@ -824,10 +887,6 @@ namespace ARKRegionsEditor
             if (e.AddedItems.Count > 0)
             {
                 var region = e.AddedItems[0] as Region;
-                if (checkboxRemoveInsideZone.IsChecked == true)
-                {
-                    RemoveInsideZones(region);
-                }
                 LoadZones(region);
                 CheckZones(region, true);
             }
@@ -842,8 +901,9 @@ namespace ARKRegionsEditor
             }
         }
 
-        private void listviewRegions_KeyUp(object sender, KeyEventArgs e)
+        private void listviewRegions_KeyDown(object sender, KeyEventArgs e)
         {
+            if (lockKeyboard_ != 0) return;
             // Ctrl-C
             if (e.Key == Key.C && (e.KeyboardDevice.Modifiers & ModifierKeys.Control) != 0)
             {
@@ -853,6 +913,7 @@ namespace ARKRegionsEditor
                     Clipboard.SetText(region.Label);
                     ConsoleWriteLine(region.Label);
                 }
+                lockKeyboard_++;
             }
             // Del
             else if (e.Key == Key.Delete)
@@ -863,7 +924,13 @@ namespace ARKRegionsEditor
                     regionsList_.Remove(region);
                     ConsoleWriteLine($"Suppression de la région '{region.Label}'");
                 }
+                lockKeyboard_++;
             }
+        }
+
+        private void listviewRegions_KeyUp(object sender, KeyEventArgs e)
+        {
+            lockKeyboard_ = 0;
         }
 
         private bool RemoveInsideZones(Region region)
@@ -882,8 +949,19 @@ namespace ARKRegionsEditor
             {
                 region.zones.Remove(item);
             }
+            region.Error = false;
             region.Update();
             return list_to_remove.Count > 0;
+        }
+
+        private void RemoveZones(Region region)
+        {
+            var list_to_remove = region.zones.FindAll(x => x.MarkToDelete);
+            foreach (var item in list_to_remove)
+            {
+                region.zones.Remove(item);
+            }
+            region.Update();
         }
 
         private void listviewBiomes_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -891,10 +969,6 @@ namespace ARKRegionsEditor
             if (e.AddedItems.Count > 0)
             {
                 var biome = e.AddedItems[0] as Region;
-                if (checkboxRemoveInsideZone.IsChecked == true)
-                {
-                    RemoveInsideZones(biome);
-                }
                 LoadZones(biome);
                 CheckZones(biome, true);
             }
@@ -955,23 +1029,6 @@ namespace ARKRegionsEditor
 
         private void listviewZones_KeyUp(object sender, KeyEventArgs e)
         {
-            // Del
-            if (e.Key == Key.Delete)
-            {
-                var zone = listviewZones.SelectedItem as MapZone;
-                if (zone != null)
-                {
-                    var region = listviewZones.Tag as Region;
-                    if (region != null)
-                    {
-                        ConsoleWriteLine($"Region '{region.Name}': suppresion manuelle de la zone ({zone.Lat};{zone.Lon};{zone.LatLength};{zone.LonLength})");
-                        region.zones.Remove(zone);
-                        LoadZones(region);
-                        CheckZones(region, true);
-                        region.Update();
-                    }
-                }
-            }
         }
 
         private void textEditorRegions_TextChanged(object sender, EventArgs e)
@@ -1016,40 +1073,14 @@ namespace ARKRegionsEditor
             UpdateRegions();
         }
 
+        private void buttonSaveDataRegions_Click(object sender, RoutedEventArgs e)
+        {
+            SaveDataRegions();
+        }
+
         private void buttonSaveRegions_Click(object sender, RoutedEventArgs e)
         {
-            // Check if a file exists
-            var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
-            if (map.regionsFile == null)
-            {
-                if (map.regions != null)
-                {
-                    map.regionsFile = map.regions;
-                }
-                else
-                {
-                    map.regionsFile = map.name.Replace(' ', '_') + "_Regions.json";
-                }
-                if (cfg_.maps == null)
-                {
-                    cfg_.maps = new Dictionary<string, MapListJsonItem>();
-                }
-                MapListJsonItem map_def = null;
-                if (cfg_.maps.ContainsKey(map.name))
-                {
-                    map_def = cfg_.maps[map.name];
-                }
-                else
-                {
-                    map_def = new MapListJsonItem()
-                    {
-                        regions = map.regionsFile
-                    };
-                    cfg_.maps[map.name] = map_def;
-                }
-                SaveMainConfig();
-            }
-            File.WriteAllText(map.regionsFile, textEditorRegions.Text);
+            SaveRegions();
         }
 
         #region Listview Region Drag and Drop
@@ -1138,6 +1169,8 @@ namespace ARKRegionsEditor
                 {
                     regionsList_.Remove(region_src);
                     regionsList_.Insert(idx_dst, region_src);
+                    BuildRegionPriority();
+                    listviewRegionsSort();
                 }
             }
         }
@@ -1169,6 +1202,16 @@ namespace ARKRegionsEditor
                 mapViewer.ZonesVisibility = checkboxViewZone.IsChecked;
         }
 
+        private void listviewRegionsSort()
+        {
+            if (listViewRegionsSortCol_ != null)
+            {
+                listviewRegions.Items.SortDescriptions.Clear();
+                listviewRegions.Items.SortDescriptions.Add(listViewRegionsSortDescription_);
+                listviewRegions.Items.Refresh();
+            }
+        }
+
         private void listviewRegionsColumnHeader_Click(object sender, RoutedEventArgs e)
         {
             GridViewColumnHeader column = (sender as GridViewColumnHeader);
@@ -1178,7 +1221,6 @@ namespace ARKRegionsEditor
                 AdornerLayer.GetAdornerLayer(listViewRegionsSortCol_).Remove(listViewRegionsSortAdorner_);
                 listviewRegions.Items.SortDescriptions.Clear();
             }
-
             ListSortDirection newDir = ListSortDirection.Ascending;
             if (listViewRegionsSortCol_ == column && listViewRegionsSortAdorner_.Direction == newDir)
                 newDir = ListSortDirection.Descending;
@@ -1186,7 +1228,8 @@ namespace ARKRegionsEditor
             listViewRegionsSortCol_ = column;
             listViewRegionsSortAdorner_ = new SortAdorner(listViewRegionsSortCol_, newDir);
             AdornerLayer.GetAdornerLayer(listViewRegionsSortCol_).Add(listViewRegionsSortAdorner_);
-            listviewRegions.Items.SortDescriptions.Add(new SortDescription(sortBy, newDir));
+            listViewRegionsSortDescription_ = new SortDescription(sortBy, newDir);
+            listviewRegions.Items.SortDescriptions.Add(listViewRegionsSortDescription_);
         }
     }
 }

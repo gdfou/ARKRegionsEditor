@@ -6,11 +6,18 @@ using static ARKRegionsEditor.ArkWiki;
 
 namespace ARKRegionsEditor
 {
+    public class MapListJsonMapBorder
+    {
+        public int? width { get; set; }
+        public string color { get; set; }
+    }
+
     public class MapListJsonItem
     {
         public string name { get; set; }
         public string map { get; set; }
         public ArkWikiJsonRect coordinateBorders { get; set; }
+        public MapListJsonMapBorder map_border { get; set; }
         public string regions { get; set; }
         public string biomes { get; set; }
 

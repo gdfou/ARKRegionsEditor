@@ -39,7 +39,7 @@ namespace ARKRegionsEditor
             }
         }
 
-        public bool Error => false; // for Listview binding compatibility
+        public bool Error { get; set; }
 
         public MapZone()
         {
@@ -69,6 +69,28 @@ namespace ARKRegionsEditor
             Lon = (float)rect.Left;
             LatLength = (float)rect.Height;
             LonLength = (float)rect.Width;
+        }
+
+        public void RoundCoordinates()
+        {
+            Lon = (float)Math.Round(Lon);
+            Lat = (float)Math.Round(Lat);
+            LonLength = (float)Math.Round(LonLength);
+            if (LonLength == 0)
+            {
+                LonLength = 1;
+            }
+            LatLength = (float)Math.Round(LatLength);
+            if (LatLength == 0)
+            {
+                LatLength = 1;
+            }
+        }
+
+        public bool MarkToDelete
+        {
+            get;
+            set;
         }
 
         public void CopyFrom(MapZone src)
@@ -122,6 +144,8 @@ namespace ARKRegionsEditor
             OnPropertyChanged("Lon");
             OnPropertyChanged("LatLength");
             OnPropertyChanged("LonLength");
+            OnPropertyChanged("Error");
+            OnPropertyChanged("Warning");
         }
 
         // Create the OnPropertyChanged method to raise the event
@@ -135,9 +159,21 @@ namespace ARKRegionsEditor
 
     public class Region : INotifyPropertyChanged
     {
+        protected int priority_;
         public string Name { get; set; }
         public string Label { get; set; }
-        public int Priority { get; set; }
+        public int Priority 
+        {
+            get => priority_;
+            set
+            {
+                if (priority_ != value)
+                {
+                    priority_ = value;
+                    OnPropertyChanged("Priority");
+                }
+            }
+        }
         public bool Warning { get; set; }
         public bool Error { get; set; }
         public List<MapZone> zones;
@@ -170,6 +206,7 @@ namespace ARKRegionsEditor
             OnPropertyChanged("ZoneCount");
             OnPropertyChanged("Warning");
             OnPropertyChanged("Error");
+            OnPropertyChanged("Priority");
             foreach (var zone in zones)
             {
                 zone.Update();

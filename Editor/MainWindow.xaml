@@ -65,8 +65,12 @@
             </StackPanel>
         </DockPanel>
         <DockPanel DockPanel.Dock="Top">
-            <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Margin="0,4,0,4" VerticalAlignment="Center">
-                <CheckBox x:Name="checkboxRemoveInsideZone" Content="Biome: Supprimer les zones incluses dans une zone" IsChecked="True"/>
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,4,0,4" VerticalAlignment="Center">
+                <CheckBox x:Name="checkboxRemoveInsideZone" Content="Supprimer les zones incluses dans une zone" Margin="4" IsChecked="True"/>
+                <CheckBox x:Name="checkboxRoundZone" Content="Arrondir les coordonnées des zones" Margin="10,4,14,4" IsChecked="True"/>
+                <Button x:Name="buttonSaveRegions" Content=" Sauvegarder régions " Height="20"
+                    IsEnabled="False" 
+                    Click="buttonSaveRegions_Click"/>
             </StackPanel>
         </DockPanel>
         <TabControl x:Name="tabControlMain">
@@ -79,8 +83,8 @@
                                     Click="buttonUpdateFromRegions_Click" IsEnabled="False"/>
                             <Button x:Name="buttonUpdateFromBiomes" Content=" Mettre à jour à partir des biomes " Height="20" Margin="4" 
                                     Click="buttonUpdateFromBiomes_Click" IsEnabled="False"/>
-                            <Button x:Name="buttonSaveRegions" Content=" Sauvegarder " Height="20" Margin="4" 
-                                    Click="buttonSaveRegions_Click" IsEnabled="False"/>
+                            <Button x:Name="buttonSaveDataRegions" Content=" Sauvegarder " Height="20" Margin="4" 
+                                    Click="buttonSaveDataRegions_Click" IsEnabled="False"/>
                         </StackPanel>
                     </DockPanel>
                     <syntaxEdit:TextEditor
@@ -109,6 +113,7 @@
                             <ListView x:Name="listviewRegions" SelectionMode="Single" 
                                       SelectionChanged="listviewRegions_SelectionChanged" 
                                       MouseDoubleClick="listviewRegions_MouseDoubleClick"
+                                      KeyDown="listviewRegions_KeyDown" 
                                       KeyUp="listviewRegions_KeyUp" 
                                       AllowDrop="True"
                                       PreviewMouseLeftButtonDown="listviewRegions_PreviewMouseLeftButtonDown"
@@ -132,6 +137,11 @@
                                         <GridViewColumn Width="60" DisplayMemberBinding="{Binding ZoneCount}">
                                             <GridViewColumn.Header>
                                                 <GridViewColumnHeader Tag="ZoneCount" Click="listviewRegionsColumnHeader_Click">Zones</GridViewColumnHeader>
+                                            </GridViewColumn.Header>
+                                        </GridViewColumn>
+                                        <GridViewColumn Width="70" DisplayMemberBinding="{Binding Priority}" >
+                                            <GridViewColumn.Header>
+                                                <GridViewColumnHeader Tag="Priority" Click="listviewRegionsColumnHeader_Click">Priorité</GridViewColumnHeader>
                                             </GridViewColumn.Header>
                                         </GridViewColumn>
                                     </GridView>

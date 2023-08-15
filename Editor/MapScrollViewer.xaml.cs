@@ -62,6 +62,9 @@ namespace ARKRegionsEditor
             canvasZones.MouseLeftButtonDown += OnMouseLeftButtonDown;
             canvasZones.MouseMove += OnMouseMoveCanvas;
 
+            canvasRegion.MouseLeftButtonDown += OnMouseLeftButtonDown;
+            canvasRegion.MouseMove += OnMouseMoveCanvas;
+
             ZoomInFull();
         }
 
@@ -114,20 +117,29 @@ namespace ARKRegionsEditor
             }
         }
 
-        public int MapBorderWidth
+        public int? MapBorderWidth
         {
             get => mapBorderWidth_;
             set
             {
-                if (value != mapBorderWidth_)
+                if (value != null && value != mapBorderWidth_)
                 {
-                    mapBorderWidth_ = value;
+                    mapBorderWidth_ = (int)value;
                     mapSize_.pX = mapBorderWidth_;
                     mapSize_.pY = mapBorderWidth_;
                     NotifyPropertyChanged("MapBorderWidth");
                     //Console.WriteLine($"Map size = ({mapSize_.pX};{mapSize_.pY})-({mapSize_.pMaxWidth};{mapSize_.pMaxHeight})");
                 }
             }
+        }
+
+        public void AutoAdjustBorder()
+        {
+            var pt = mapSize_.ConvertMapPointToPixel(new MapPos(-2,-2));
+            pt.X = -Math.Ceiling(pt.X);
+            pt.Y = -Math.Ceiling(pt.Y);
+            MapBorderWidth = (int)Math.Max(pt.X, pt.Y);
+            DrawGrid();
         }
 
         public Brush MapBorderColor
@@ -159,9 +171,10 @@ namespace ARKRegionsEditor
                 if ((editMode_ == false) && (value == true))
                 {
                     editMode_ = true;
+                    GridVisibility = true;
                     textboxRegion.Text = currentRegion_.Label;
                     toolbar.Visibility = Visibility.Visible;
-                    SendCommand("EnterEditMode", currentRegion_);
+                    SendCommand("EnterEditMode");
                     foreach(var zone in zones_)
                     {
                         zone.Save();
@@ -172,17 +185,20 @@ namespace ARKRegionsEditor
                 {
                     editMode_ = false;
                     toolbar.Visibility = Visibility.Hidden;
+                    GridVisibility = false;
                 }
             }
         }
+
+        public Region CurrentRegion => currentRegion_;
 
         private void buttonSave_Click(object sender, RoutedEventArgs e)
         {
             EditMode = false;
             DrawRegion();
             RescaleCanvas(Scale);
-            SendCommand("ExitEditMode", currentRegion_);
-            SendCommand("UpdateRegion", currentRegion_);
+            SendCommand("ExitEditMode");
+            SendCommand("UpdateRegion");
         }
 
         private void buttonCancel_Click(object sender, RoutedEventArgs e)
@@ -194,7 +210,7 @@ namespace ARKRegionsEditor
             }
             DrawRegion();
             RescaleCanvas(Scale);
-            SendCommand("ExitEditMode", currentRegion_);
+            SendCommand("ExitEditMode");
         }
 
         public void Clear()
@@ -261,7 +277,7 @@ namespace ARKRegionsEditor
             if (currentRegion_ != null)
             {
                 currentRegion_.Update();
-                SendCommand("UpdateRegion", currentRegion_);
+                SendCommand("UpdateRegion");
             }
         }
 
@@ -389,7 +405,7 @@ namespace ARKRegionsEditor
             canvasGrid.Visibility = Visibility.Collapsed;
             canvasGrid.BeginInit();
             canvasGrid.Children.Clear();
-            
+
             for (int pos = 0; pos < 100; pos++)
             {
                 var o = mapSize_.ConvertMapPointToPixel(new MapPos(pos, pos));
@@ -400,7 +416,7 @@ namespace ARKRegionsEditor
                     Opacity = 0.5,
                     X1 = 0,
                     Y1 = o.Y,
-                    X2 = mapSize_.pWidth,
+                    X2 = mapSize_.pMaxWidth,
                     Y2 = o.Y
                 };
                 canvasGrid.Children.Add(line_vertical);
@@ -412,7 +428,7 @@ namespace ARKRegionsEditor
                     X1 = o.X,
                     Y1 = 0,
                     X2 = o.X,
-                    Y2 = mapSize_.pHeight
+                    Y2 = mapSize_.pMaxHeight
                 };
                 canvasGrid.Children.Add(line_horizontal);
             }
@@ -425,7 +441,7 @@ namespace ARKRegionsEditor
             set => canvasGrid.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        protected void RescaleCanvas(double scale)
+        public void RescaleCanvas(double scale)
         {
             foreach (var item in zones_)
             {
@@ -771,23 +787,26 @@ namespace ARKRegionsEditor
         // Command event
         public delegate void CommandEventHandler(object sender, CommandEventArgs e);
         public event CommandEventHandler CommandEvent;
-        public void SendCommand(string command, object region)
+        public void SendCommand(string command, object obj = null)
         {
-            CommandEvent?.Invoke(this, new CommandEventArgs(command, region));
+            CommandEvent?.Invoke(this, new CommandEventArgs(command, currentRegion_, obj));
         }
     }
 
     public class CommandEventArgs : EventArgs
     {
         private string command_;
+        private Region region_;
         private object object_;
 
         public string Command => command_;
+        public Region Region => region_;
         public object Object => object_;
 
-        public CommandEventArgs(string command, object obj)
+        public CommandEventArgs(string command, Region region, object obj=null)
         {
             this.command_ = command;
+            this.region_ = region;
             this.object_ = obj;
         }
     }

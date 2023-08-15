@@ -19,6 +19,7 @@
       "name": "The Island",
       "map": "The_Island_Topographic_Map.jpg",
       "coordinateBorders": { "top": 7.2, "left": 7.2, "bottom": 92.8, "right": 92.8 },
+      "map_border": { "color": "#246be1" },
       "regions": "The_Island_Regions.json",
       "biomes": "TheIslandSubMaps/biomes.json"
     },
@@ -46,6 +47,7 @@
       "name": "Aberration",
       "map": "Aberration_Topographic_Map.jpg",
       "coordinateBorders": { "top": 7.2, "left": 7.2, "bottom": 92.8, "right": 92.8 },
+      "map_border": { "color": "#808080" },
       "regions": "Aberration_Regions.json",
       "biomes": "Aberration/biomes.json"
     },
@@ -65,6 +67,7 @@
     {
       "name": "Genesis: Part 1",
       "map": "Genesis_Part_1_Topographic_Map.jpg",
+      "map_border": { "color": "#909090" },
       "regions": "Genesis_Part_1_Regions.json",
       "biomes": "Genesis/biomes.json"
     },
@@ -78,6 +81,7 @@
       "name": "Crystal Isles",
       "map": "Crystal_Isles_Topographic_Map.jpg",
       "coordinateBorders": { "top": 10.5, "left": 14, "bottom": 86, "right": 87 },
+      "map_border": { "color": "#0c7edf" },
       "regions": "Crystal_Isles_Regions.json",
       "biomes": "CrystalIsles-CrystalIsles/CrystalIsles/biomes.json"
     },
@@ -90,6 +94,7 @@
     {
       "name": "Fjordur",
       "map": "Fjordur_Topographic_Map.jpg",
+      "map_border": { "color": "#2955dc" },
       "regions": "Fjordur_Regions.json",
       "biomes": "FjordurOfficial-FjordurOfficial/FjordurOfficial/biomes.json"
     }

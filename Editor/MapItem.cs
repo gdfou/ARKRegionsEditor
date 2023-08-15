@@ -4,9 +4,10 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using System.Linq;
+using System.Runtime.Remoting.Messaging;
 using System.Security.Policy;
+using System.Data;
 
 namespace ARKRegionsEditor
 {
@@ -37,6 +38,7 @@ namespace ARKRegionsEditor
         private Edges edgeEdit_;
         protected ContextMenu menu_;
         private MapZone zoneSave_;
+        private SolidColorBrush rectColor_;
 
         public Canvas Canvas;
         public MapZone Zone;
@@ -55,10 +57,11 @@ namespace ARKRegionsEditor
 
         public void BuildGeometry(Color color, int opacity)
         {
+            rectColor_ = new SolidColorBrush(color);
             // Main geometry
             rect_ = new Rectangle()
             {
-                Fill = new SolidColorBrush(color),
+                Fill = rectColor_,
                 Stroke = new SolidColorBrush(Colors.White),
                 StrokeThickness = 1,
                 StrokeDashArray = new DoubleCollection() { 2, 4 },
@@ -110,6 +113,11 @@ namespace ARKRegionsEditor
             {
                 Header = "Annuler",
                 Tag = "cancel",
+            });
+            menu_.Items.Add(new MenuItem()
+            {
+                Header = "Supprimer",
+                Tag = "delete",
             });
             foreach (MenuItem item in menu_.Items)
             {
@@ -170,8 +178,8 @@ namespace ARKRegionsEditor
             else
             {
                 highlight_.Stroke = new SolidColorBrush(color);
-                highlight_.StrokeThickness = 4;
-                highlight_.StrokeDashArray = new DoubleCollection() { 1 };
+                highlight_.StrokeThickness = 3;
+                highlight_.StrokeDashArray = new DoubleCollection() { 2 };
                 highlight_.Visibility = Visibility.Visible;
             }
         }
@@ -215,6 +223,7 @@ namespace ARKRegionsEditor
             return (posA, posB);
         }
 
+        // Rename to Update ?
         public void Rescale(double scale)
         {
             scale_ = scale;
@@ -228,6 +237,8 @@ namespace ARKRegionsEditor
 
             if (editionMode_ == true)
                 RescaleEdges();
+
+            rect_.Fill = Zone.MarkToDelete ? new SolidColorBrush(Colors.Gray) : rectColor_;
 
             Canvas.SetLeft(Canvas, posA_.X * scale);
             Canvas.SetTop(Canvas, posA_.Y * scale);
@@ -251,7 +262,6 @@ namespace ARKRegionsEditor
                 foreach (var edge in edges_)
                     edge.Visibility = Visibility.Visible;
                 editionMode_ = true;
-                map_.GridVisibility = true;
                 RescaleEdges();
             }
             else if (e.ClickCount == 1)
@@ -324,7 +334,24 @@ namespace ARKRegionsEditor
 
         private void Rect_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
-            e.Handled = editionMode_ == false;
+            if (editionMode_ == true)
+            {
+                e.Handled = false;
+                var allItems = menu_.Items.Cast<MenuItem>().ToArray();
+                var item = allItems.FirstOrDefault(x => (x.Tag as string) == "delete");
+                if (Zone.MarkToDelete)
+                {
+                    item.IsEnabled = false;
+                }
+                else
+                {
+                    item.IsEnabled = true;
+                }
+            }
+            else
+            {
+                e.Handled = true;
+            }
         }
 
         public void CancelEdit()
@@ -333,6 +360,7 @@ namespace ARKRegionsEditor
             // Attention NE PAS DETRUIRE OU MODFIER LA REFERENCE DE CET OBJET !
             // cet objet est référencé dans la region à laquelle il appartient
             Zone.CopyFrom(zoneSave_);
+            Zone.MarkToDelete = false;
         }
 
         private void Menu_Click(object sender, RoutedEventArgs e)
@@ -350,9 +378,23 @@ namespace ARKRegionsEditor
                         Rescale(scale_);
                         break;
                     }
-                
+
                 case "cancel":
                     {
+                        if (Zone.MarkToDelete)
+                        {
+                            Zone.MarkToDelete = false;
+                            Zone.Update();
+                            Rescale(map_.Scale);
+                        }
+                        break;
+                    }
+
+                case "delete":
+                    {
+                        Zone.MarkToDelete = true;
+                        Zone.Update();
+                        Rescale(map_.Scale);
                         break;
                     }
             }
