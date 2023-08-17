@@ -31,15 +31,9 @@ namespace ARKRegionsEditor
             }
         }
 
-        public bool Warning 
-        {
-            get
-            {
-                return (LonLength < 2 || LatLength < 2);
-            }
-        }
-
+        public bool Warning { get; set; }
         public bool Error { get; set; }
+        public bool NewZone { get; set; }
 
         public MapZone()
         {
@@ -130,7 +124,12 @@ namespace ARKRegionsEditor
         {
             var rzone1 = zone1.ToRectangle();
             var rzone2 = zone2.ToRectangle();
-            return new MapZone(Rect.Intersect(rzone1, rzone2));
+            var zrect = Rect.Intersect(rzone1, rzone2);
+            if (zrect.Width > 0 && zrect.Height > 0)
+            {
+                return new MapZone(zrect);
+            }
+            return null;
         }
 
         public override string ToString()
@@ -148,6 +147,11 @@ namespace ARKRegionsEditor
             OnPropertyChanged("Warning");
         }
 
+        public static int CompareTo(MapZone a, MapZone b)
+        {
+            return a.Lat.CompareTo(b.Lat);
+        }
+
         // Create the OnPropertyChanged method to raise the event
         // The calling member's name will be used as the parameter.
         public event PropertyChangedEventHandler PropertyChanged;
@@ -160,6 +164,9 @@ namespace ARKRegionsEditor
     public class Region : INotifyPropertyChanged
     {
         protected int priority_;
+        protected bool error_;
+        protected bool warning_;
+
         public string Name { get; set; }
         public string Label { get; set; }
         public int Priority 
@@ -174,8 +181,32 @@ namespace ARKRegionsEditor
                 }
             }
         }
-        public bool Warning { get; set; }
-        public bool Error { get; set; }
+        
+        public bool Warning 
+        {
+            get => warning_;
+            set
+            {
+                if (warning_ != value)
+                {
+                    warning_ = value;
+                    OnPropertyChanged("Warning");
+                }
+            }
+        }
+
+        public bool Error 
+        {
+            get => error_;
+            set
+            {
+                if(error_ != value)
+                {
+                    error_ = value;
+                    OnPropertyChanged("Error");
+                }
+            }
+        }
         public List<MapZone> zones;
 
         public int ZoneCount 
@@ -204,8 +235,6 @@ namespace ARKRegionsEditor
         public void Update()
         {
             OnPropertyChanged("ZoneCount");
-            OnPropertyChanged("Warning");
-            OnPropertyChanged("Error");
             OnPropertyChanged("Priority");
             foreach (var zone in zones)
             {

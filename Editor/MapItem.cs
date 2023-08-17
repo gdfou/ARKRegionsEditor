@@ -116,6 +116,11 @@ namespace ARKRegionsEditor
             });
             menu_.Items.Add(new MenuItem()
             {
+                Header = "Copier",
+                Tag = "copy",
+            });
+            menu_.Items.Add(new MenuItem()
+            {
                 Header = "Supprimer",
                 Tag = "delete",
             });
@@ -136,6 +141,8 @@ namespace ARKRegionsEditor
         {
             set => rect_.Fill = new SolidColorBrush(value);
         }
+
+        public bool EditMode => editionMode_;
 
         public Rect Rect
         {
@@ -163,7 +170,11 @@ namespace ARKRegionsEditor
 
         public void ClearHightlight()
         {
-            editionMode_ = false;
+            if (editionMode_ == true)
+            {
+                map_.SendCommand("StopEditZone", Zone);
+                editionMode_ = false;
+            }
             highlight_.Visibility = Visibility.Collapsed;
             foreach (var edge in edges_)
                 edge.Visibility = Visibility.Collapsed;
@@ -249,24 +260,33 @@ namespace ARKRegionsEditor
         {
             if (e.ClickCount > 1 && editionMode_ == false)
             {
-                map_.EditMode = true; // on passe la carte en mode edition, la sortie ne peux se faire qu'avec les boutons de la toolbar de la carte
+                // Vérifier si une autre zone n'est pas en édition
+                if (map_.CheckZoneEditMode(this) == false)
+                {
+                    map_.EditMode = true; // on passe la carte en mode edition, la sortie ne peux se faire qu'avec les boutons de la toolbar de la carte
 
-                map_.ClearHighlightZones();
-                map_.HighlightZone(Zone, Colors.Magenta);
+                    map_.ClearHighlightZones();
+                    map_.HighlightZone(Zone, Colors.Magenta);
 
-                edgeEdit_.topLeft.lat = Zone.Pos.lat;
-                edgeEdit_.topLeft.lon = Zone.Pos.lon;
-                edgeEdit_.bottomRight.lat = Zone.Pos.lat + Zone.LatLength;
-                edgeEdit_.bottomRight.lon = Zone.Pos.lon + Zone.LonLength;
+                    edgeEdit_.topLeft.lat = Zone.Pos.lat;
+                    edgeEdit_.topLeft.lon = Zone.Pos.lon;
+                    edgeEdit_.bottomRight.lat = Zone.Pos.lat + Zone.LatLength;
+                    edgeEdit_.bottomRight.lon = Zone.Pos.lon + Zone.LonLength;
 
-                foreach (var edge in edges_)
-                    edge.Visibility = Visibility.Visible;
-                editionMode_ = true;
-                RescaleEdges();
+                    foreach (var edge in edges_)
+                        edge.Visibility = Visibility.Visible;
+                    editionMode_ = true;
+                    RescaleEdges();
+                    map_.SendCommand("StartEditZone", Zone);
+                }
             }
             else if (e.ClickCount == 1)
             {
-                map_.SendCommand("SelectZone", Zone);
+                // Vérifier si une autre zone n'est pas en édition
+                if (map_.CheckZoneEditMode(this) == false)
+                {
+                    map_.SendCommand("SelectZone", Zone);
+                }
             }
         }
 
@@ -363,6 +383,18 @@ namespace ARKRegionsEditor
             Zone.MarkToDelete = false;
         }
 
+        private void CheckPoint(ref MapPosStruct posA, ref MapPosStruct posB)
+        {
+            if (posB.lon < posA.lon)
+            {
+                (posA.lon, posB.lon) = (posB.lon, posA.lon);
+            }
+            if (posB.lat < posA.lat)
+            {
+                (posA.lat, posB.lat) = (posB.lat, posA.lat);
+            }
+        }
+
         private void Menu_Click(object sender, RoutedEventArgs e)
         {
             ClearHightlight(); // fin du mode edition de la zone
@@ -371,6 +403,8 @@ namespace ARKRegionsEditor
             {
                 case "valid":
                     {
+                        // Check inversion par l'edition
+                        CheckPoint(ref edgeEdit_.topLeft, ref edgeEdit_.bottomRight);
                         Zone.Lat = edgeEdit_.topLeft.lat;
                         Zone.Lon = edgeEdit_.topLeft.lon;
                         Zone.LatLength = edgeEdit_.bottomRight.lat - edgeEdit_.topLeft.lat;
@@ -395,6 +429,12 @@ namespace ARKRegionsEditor
                         Zone.MarkToDelete = true;
                         Zone.Update();
                         Rescale(map_.Scale);
+                        break;
+                    }
+
+                case "copy":
+                    {
+                        map_.SendCommand("CopyZone", Zone);
                         break;
                     }
             }

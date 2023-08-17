@@ -66,33 +66,24 @@
         </DockPanel>
         <DockPanel DockPanel.Dock="Top">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,4,0,4" VerticalAlignment="Center">
-                <CheckBox x:Name="checkboxRemoveInsideZone" Content="Supprimer les zones incluses dans une zone" Margin="4" IsChecked="True"/>
-                <CheckBox x:Name="checkboxRoundZone" Content="Arrondir les coordonnées des zones" Margin="10,4,14,4" IsChecked="True"/>
+                <CheckBox x:Name="checkBoxTranslate" Content="Traduction" VerticalAlignment="Center" IsEnabled="False" Cursor="Hand" Margin="4,0,10,0"/>
                 <Button x:Name="buttonSaveRegions" Content=" Sauvegarder régions " Height="20"
                     IsEnabled="False" 
                     Click="buttonSaveRegions_Click"/>
             </StackPanel>
         </DockPanel>
-        <TabControl x:Name="tabControlMain">
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock x:Name="labelInfo" Text=""/>
+            </StatusBarItem>
+        </StatusBar>
+        <TabControl x:Name="tabControlMain" DockPanel.Dock="Top">
             <TabItem x:Name="tabItemDataRegions" Header="Donnée:Regions">
-                <DockPanel>
-                    <DockPanel DockPanel.Dock="Top" Background="AliceBlue">
-                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,4,0,4" VerticalAlignment="Center" Cursor="Hand">
-                            <CheckBox x:Name="checkBoxTranslate" Content="Traduction" VerticalAlignment="Center" IsEnabled="False" Cursor="Hand"/>
-                            <Button x:Name="buttonUpdateFromRegions" Content=" Mettre à jour à partir des régions " Height="20" Margin="4" 
-                                    Click="buttonUpdateFromRegions_Click" IsEnabled="False"/>
-                            <Button x:Name="buttonUpdateFromBiomes" Content=" Mettre à jour à partir des biomes " Height="20" Margin="4" 
-                                    Click="buttonUpdateFromBiomes_Click" IsEnabled="False"/>
-                            <Button x:Name="buttonSaveDataRegions" Content=" Sauvegarder " Height="20" Margin="4" 
-                                    Click="buttonSaveDataRegions_Click" IsEnabled="False"/>
-                        </StackPanel>
-                    </DockPanel>
-                    <syntaxEdit:TextEditor
-				            Name="textEditorRegions"
-				            FontFamily="Cascadia Code"
-				            FontSize="10pt"
-				            SyntaxHighlighting="Json" TextChanged="textEditorRegions_TextChanged"/>
-                </DockPanel>
+                <syntaxEdit:TextEditor
+				        Name="textEditorRegions"
+				        FontFamily="Cascadia Code"
+				        FontSize="10pt"
+				        SyntaxHighlighting="Json" TextChanged="textEditorRegions_TextChanged"/>
             </TabItem>
             <TabItem x:Name="tabItemConsole" Header="Console">
                 <TextBox x:Name="textboxConsole" FontFamily="Consolas" IsReadOnly="True" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"/>
@@ -124,10 +115,18 @@
                                       Drop="listviewRegions_Drop">
                                 <ListView.View>
                                     <GridView>
-                                        <GridViewColumn Width="180" DisplayMemberBinding="{Binding Label}">
+                                        <GridViewColumn Width="180">
                                             <GridViewColumn.Header>
                                                 <GridViewColumnHeader Tag="Label" Click="listviewRegionsColumnHeader_Click">Nom</GridViewColumnHeader>
                                             </GridViewColumn.Header>
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Vertical">
+                                                        <TextBlock Text="{Binding Label}" />
+                                                        <TextBox Text="{Binding Label}" Visibility="Collapsed"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
                                         <GridViewColumn x:Name="listviewRegionsColumnName" Width="40" DisplayMemberBinding="{Binding Name}">
                                             <GridViewColumn.Header>
@@ -148,20 +147,6 @@
                                 </ListView.View>
                             </ListView>
                         </TabItem>
-                        <TabItem x:Name="tabItemBiomes" Header="Biomes">
-                            <ListView x:Name="listviewBiomes" SelectionMode="Single" 
-                                      SelectionChanged="listviewBiomes_SelectionChanged" 
-                                      MouseDoubleClick="listviewBiomes_MouseDoubleClick"
-                                      KeyUp="listviewBiomes_KeyUp">
-                                <ListView.View>
-                                    <GridView>
-                                        <GridViewColumn Header="Nom" Width="180" DisplayMemberBinding="{Binding Label}" />
-                                        <GridViewColumn Header="Zones" Width="50" DisplayMemberBinding="{Binding ZoneCount}" />
-                                        <GridViewColumn Header="Priorité" Width="50" DisplayMemberBinding="{Binding Priority}" />
-                                    </GridView>
-                                </ListView.View>
-                            </ListView>
-                        </TabItem>
                         <TabItem x:Name="tabItemZones" Header="Zones">
                             <ListView x:Name="listviewZones" SelectionMode="Single" FontFamily="Consolas" 
                                      SelectionChanged="listviewZones_SelectionChanged" 
@@ -169,10 +154,10 @@
                                      KeyUp="listviewZones_KeyUp">
                                 <ListView.View>
                                     <GridView>
-                                        <GridViewColumn Header="Lon" Width="50" DisplayMemberBinding="{Binding Lon}" />
                                         <GridViewColumn Header="Lat" Width="50" DisplayMemberBinding="{Binding Lat}" />
-                                        <GridViewColumn Header="Lon Len" Width="60" DisplayMemberBinding="{Binding LonLength}" />
+                                        <GridViewColumn Header="Lon" Width="50" DisplayMemberBinding="{Binding Lon}" />
                                         <GridViewColumn Header="Lat Len" Width="60" DisplayMemberBinding="{Binding LatLength}" />
+                                        <GridViewColumn Header="Lon Len" Width="60" DisplayMemberBinding="{Binding LonLength}" />
                                     </GridView>
                                 </ListView.View>
                             </ListView>
@@ -180,11 +165,6 @@
                     </TabControl>
                     <GridSplitter x:Name="splitter" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" ShowsPreview="True" Width="5"/>
                     <local:MapScrollViewer x:Name="mapViewer" Grid.Column="2"/>
-                    <StatusBar Grid.Row="1" Grid.ColumnSpan="3">
-                        <StatusBarItem>
-                            <TextBlock x:Name="labelInfo" Text=""/>
-                        </StatusBarItem>
-                    </StatusBar>
                 </Grid>
             </TabItem>
         </TabControl>

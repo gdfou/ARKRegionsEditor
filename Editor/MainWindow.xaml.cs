@@ -12,11 +12,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Media;
 using System.Text.Encodings.Web;
-using System.Text;
 using System.Globalization;
-using System.Threading;
 using System.Windows.Input;
 using System.Windows.Documents;
+using System.Text;
+using SyntaxEdit.Editing;
+using System.Xml.Linq;
+using System.Windows.Threading;
 
 namespace ARKRegionsEditor
 {
@@ -29,27 +31,22 @@ namespace ARKRegionsEditor
         MainConfig cfg_;
         MapListJson mapList_;
         Dictionary<string, string> translation_;
-        Dictionary<string, string> reserveTranslation_;
+        Dictionary<string, string> reverseTranslation_;
         ObservableCollection<Region> regionsList_;
-        ObservableCollection<Region> biomesList_;
         ObservableCollection<MapZone> zonesList_;
         ObservableCollection<ColorItem> colorList_;
-        ArkWikiJsonRegions jsonRegions_;
         GridViewColumnHeader listViewRegionsSortCol_;
         SortAdorner listViewRegionsSortAdorner_;
         SortDescription listViewRegionsSortDescription_;
         int saveCounter_;
         int lockKeyboard_;
 
-        const string ShooterGame_archive = @"C:\Program Files (x86)\Steam\steamapps\common\ARK\ShooterGame\Content\Localization\Game\fr\ShooterGame.archive";
-
         public MainWindow()
         {
             translation_ = new Dictionary<string, string>();
-            reserveTranslation_ = new Dictionary<string, string>();
+            reverseTranslation_ = new Dictionary<string, string>();
             regionsList_ = new ObservableCollection<Region>();
             zonesList_ = new ObservableCollection<MapZone>();
-            biomesList_ = new ObservableCollection<Region>();
             DataContext = this;
             InitializeComponent();
 
@@ -75,9 +72,7 @@ namespace ARKRegionsEditor
             {
                 cfg_ = new MainConfig()
                 {
-                    window = new JsonRect(),
-                    obelisk_path = @"<drive>:<obelisk_folder>\data\wiki\",
-                    translate_path = ShooterGame_archive
+                    window = new JsonRect()
                 };
             }
         }
@@ -90,6 +85,8 @@ namespace ARKRegionsEditor
             lockInterface_++;
 
             // Load map list
+            comboBoxMap.Items.Add("Nouvelle carte");
+            comboBoxMap.Items.Add(new Separator());
             mapList_ = MapListJson.LoadFromResource("ARKRegionsEditor.Ressources.MapList.json");
             foreach (var map in mapList_.list)
             {
@@ -110,12 +107,27 @@ namespace ARKRegionsEditor
 
             if (cfg_.maps != null)
             {
+                var new_maps = new List<MapListJsonItem>();
                 foreach (var map in cfg_.maps)
                 {
                     var map_def = mapList_.maps.Find(x => x.name == map.Key);
                     if (map_def != null)
                     {
                         map_def.regionsFile = map.Value.regions;
+                    }
+                    else
+                    {
+                        map.Value.name = map.Key;
+                        new_maps.Add(map.Value);
+                        mapList_.maps.Add(map.Value);
+                    }
+                }
+                if (new_maps.Count > 0)
+                {
+                    comboBoxMap.Items.Add(new Separator());
+                    foreach (var map in new_maps)
+                    {
+                        comboBoxMap.Items.Add(map);
                     }
                 }
             }
@@ -129,21 +141,41 @@ namespace ARKRegionsEditor
             checkboxViewZone.IsChecked = mapViewer.ZonesVisibility;
 
             listviewRegions.ItemsSource = regionsList_;
-            listviewBiomes.ItemsSource = biomesList_;
             listviewZones.ItemsSource = zonesList_;
 
             comboBoxZonesColor.SelectedItem = colorList_.First(x => x.Color == mapViewer.ZonesColor);
             sliderZonesOpacity.Value = mapViewer.ZonesOpacity;
-            if (cfg_.translate_path == null)
+            if (File.Exists(cfg_.translate_path) == false)
             {
-                cfg_.translate_path = ShooterGame_archive;
+                cfg_.translate_path = null;
+                if (MessageBox.Show("Veulliez sélectionner le fichier de traduction d'ARK: Survival Evolved\n" +
+                    "Le fichier ShooterGame.archive ce trouve dans le dossier 'ShooterGame\\Content\\Localization\\Game\\<langue>' du jeu", 
+                    "Fichier de traduction", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    var openFileDialog = new Microsoft.Win32.OpenFileDialog()
+                    {
+                        Filter = "Fichier de traduction|ShooterGame.archive",
+                        Title = "Sélectionnez le fichier de traduction 'ShooterGame.archive'"
+                    };
+                    if (openFileDialog.ShowDialog() == true)
+                    {
+                        cfg_.translate_path = openFileDialog.FileName;
+                    }
+                }
             }
             LoadTranslations(cfg_.translate_path);
 
             listviewRegionsColumnName.Width = 0;
+            tabControlMain.SelectedItem = tabItemMap;
             labelInfo.Text = "Choisissez une carte, puis chargez les régions ou les biomes.";
 
             lockInterface_--;
+        }
+
+        private void IncSaveCounter()
+        {
+            saveCounter_++;
+            buttonSaveRegions.IsEnabled = true;
         }
 
         private void MapViewer_CommandEvent(object sender, CommandEventArgs e)
@@ -152,8 +184,8 @@ namespace ARKRegionsEditor
             {
                 case "EnterEditMode":
                     {
+                        tabItemDataRegions.IsEnabled = false;
                         tabItemRegions.IsEnabled = false;
-                        tabItemBiomes.IsEnabled = false;
                         tabControlMap.Tag = tabControlMap.SelectedItem;
                         tabControlMap.SelectedItem = tabItemZones;
                         labelInfo.Text = "mode édition";
@@ -162,8 +194,9 @@ namespace ARKRegionsEditor
 
                 case "ExitEditMode":
                     {
+                        tabItemDataRegions.IsEnabled = true;
                         tabItemRegions.IsEnabled = true;
-                        tabItemBiomes.IsEnabled = true;
+                        listviewZones.IsEnabled = true;
                         if (tabControlMap.Tag != null)
                         {
                             tabControlMap.SelectedItem = tabControlMap.Tag;
@@ -175,13 +208,20 @@ namespace ARKRegionsEditor
 
                 case "UpdateRegion":
                     {
+                        // Check for new zone
+                        foreach (var zone in zonesList_)
+                        {
+                            if (zone.NewZone)
+                            {
+                                e.Region.zones.Add(zone);
+                            }
+                        }
                         RemoveZones(e.Region);
-                        CheckZones(e.Region, false);
+                        CheckZones(e.Region);
                         e.Region.Update();
                         LoadZones(e.Region);
-                        saveCounter_++;
+                        IncSaveCounter();
                         labelInfo.Text = $"Mise à jour de la région '{e.Region.Label}'";
-                        buttonSaveRegions.IsEnabled = true;
                         break;
                     }
 
@@ -189,6 +229,32 @@ namespace ARKRegionsEditor
                     {
                         var zone = e.Object as MapZone;
                         listviewZones.SelectedItem = zone;
+                        break;
+                    }
+
+                case "CopyZone":
+                    {
+                        var zone = e.Object as MapZone;
+                        var new_zone = new MapZone();
+                        new_zone.CopyFrom(zone);
+                        new_zone.NewZone = true;
+                        zonesList_.Add(new_zone);
+                        mapViewer.AddZone(new_zone);
+                        listviewZones.SelectedItem = zone;
+                        break;
+                    }
+
+                case "StartEditZone":
+                    {
+                        //var zone = e.Object as MapZone;
+                        listviewZones.IsEnabled = false;
+                        break;
+                    }
+
+                case "StopEditZone":
+                    {
+                        //var zone = e.Object as MapZone;
+                        listviewZones.IsEnabled = true;
                         break;
                     }
             }
@@ -206,7 +272,6 @@ namespace ARKRegionsEditor
             {
                 if (MessageBox.Show("Voulez-vous sauvegarder vos modifications ?", "Sauvegarde", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
                 {
-                    UpdateRegions();
                     SaveRegions();
                 }
             }
@@ -234,7 +299,6 @@ namespace ARKRegionsEditor
             RightColumn.Width = (GridLength)converter.ConvertFromString(split[1]);
         }
 
-        // TODO: Ajouter le chemin vers le fichier de traduction
         private void LoadMainConfig()
         {
             try
@@ -271,14 +335,6 @@ namespace ARKRegionsEditor
             cfg_.window.height = Convert.ToInt32(Height);
             cfg_.splitter_pos = getSplitterPos();
             // Write config
-            if (cfg_.obelisk_path == null)
-            {
-                cfg_.obelisk_path = @"<drive>:<obelisk_folder>\data\wiki\";
-            }
-            if (cfg_.translate_path == null)
-            {
-                cfg_.translate_path = @"<chemin vers le fichier ShooterGame.archive de ARK>";
-            }
             string json = JsonSerializer.Serialize(cfg_, new JsonSerializerOptions 
             { 
                 WriteIndented = true, 
@@ -290,15 +346,21 @@ namespace ARKRegionsEditor
 
         private void comboBoxMap_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (saveCounter_ > 0)
+            {
+                if (MessageBox.Show("Voulez-vous sauvegarder vos modifications ?", "Sauvegarde", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+                {
+                    SaveRegions();
+                }
+            }
+
             if (lockInterface_ != 0) return;
             lockInterface_++;
             textboxConsole.Clear();
             textEditorRegions.Text = null;
             ClearData();
-            buttonLoadRegions.IsEnabled = false;
-            buttonLoadBiomes.IsEnabled = false;
-            buttonUpdateFromRegions.IsEnabled = false;
-            buttonUpdateFromBiomes.IsEnabled = false;
+            buttonLoadRegions.IsEnabled = true;
+            buttonLoadBiomes.IsEnabled = true;
             if (e.RemovedItems.Count > 0)
             {
                 var map_item_prev = e.RemovedItems[0] as MapListJsonItem;
@@ -317,7 +379,12 @@ namespace ARKRegionsEditor
                     mapViewer.MapBorderWidth = map_item.map_border.width;
                     mapViewer.MapBorderColor = (SolidColorBrush)new BrushConverter().ConvertFrom(map_item.map_border.color);
                 }
-                if (map_item.coordinateBorders != null)
+                // Gestion at et conversion vers coordinateBorders
+                if ((map_item.at != null) && (map_item.at.Count == 2) && (map_item.at[0].Count == 2) && (map_item.at[1].Count == 2))
+                {
+                    mapViewer.MapSize = new MapSize(map_item.at[0][1], map_item.at[0][0], map_item.at[1][1], map_item.at[1][0]);
+                }
+                else if (map_item.coordinateBorders != null)
                 {
                     mapViewer.MapSize = new MapSize(map_item.coordinateBorders.left, map_item.coordinateBorders.top,
                                                     map_item.coordinateBorders.right, map_item.coordinateBorders.bottom);
@@ -325,52 +392,108 @@ namespace ARKRegionsEditor
                 if (map_item.map != null)
                 {
                     mapViewer.MapImage = $"ARKRegionsEditor.Ressources.{map_item.map}";
-                    if (map_item.map_border.width == null)
-                    {
-                        mapViewer.AutoAdjustBorder();
-                    }
                 }
-                if (map_item.regions != null || map_item.regionsFile != null)
+                else if (map_item.mapFile != null)
                 {
-                    buttonLoadRegions.IsEnabled = true;
+                    mapViewer.MapImage = map_item.mapFile;
+                }
+                if (map_item.map_border?.width == null)
+                {
+                    mapViewer.AutoAdjustBorder();
                 }
                 tabControlMain.SelectedItem = tabItemMap;
-                if (map_item.biomes != null)
-                {
-                    try
-                    {
-                        if (File.Exists(Path.Combine(cfg_.obelisk_path, map_item.biomes)))
-                        {
-                            buttonLoadBiomes.IsEnabled = true;
-                        }
-                    }
-                    catch 
-                    {
-                        MessageBox.Show($"Erreur au chargement de '{cfg_.obelisk_path}/{map_item.biomes}'");
-                    }
-                }
-
                 mapViewer.ZoomInFull();
+            }
+            else // nouvelle carte
+            {
+                mapViewer.Clear();
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog()
+                {
+                    Filter = "ARK Map Image File|*.jpg",
+                    Title = "Sélectionnez le fichier image de la carte"
+                };
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    mapViewer.MapImage = openFileDialog.FileName;
+                    CreateMapSaveData(openFileDialog.FileName);
+                    SaveMainConfig();
+                    MessageBox.Show("L'application va se fermer\nModifier le fichier de configuration avec les données de cette carte.");
+                    Close();
+                }
             }
             lockInterface_--;
         }
 
+        private void LoadRegionsQuery(string jsonString)
+        {
+            if (MessageBox.Show("Cette opération va remplacer toutes les données de régions, voulez-vous continuer ?", "Charger des données de régions", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            {
+                LoadRegionsFromJson(jsonString);
+            }
+        }
+
+        private string BuildAndLoadRegionFile(string regionsFile)
+        {
+            if (regionsFile != null)
+            {
+                var exePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var fullFilename = Path.Combine(exePath, regionsFile);
+                if (File.Exists(fullFilename))
+                {
+                    return File.ReadAllText(fullFilename);
+                }
+            }
+            return null;
+        }
+
         private void buttonLoadRegions_Click(object sender, RoutedEventArgs e)
         {
-            var map_def = comboBoxMap.SelectedItem as MapListJsonItem;
-            if (map_def.regionsFile != null)
+            // Chargement à partir de la ressource interne, d'un fichier json de sauvegarde ou d'un fichier externe
+            var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
+            var str = BuildAndLoadRegionFile(map.regionsFile);
+            if (str != null)
             {
-                textEditorRegions.Text = File.ReadAllText(map_def.regionsFile);
+                LoadRegionsQuery(str);
             }
-            else if (map_def.regions != null)
+            else if (map.regions != null)
             {
-                textEditorRegions.Text = LoadStringFromRes($"ARKRegionsEditor.Ressources.{map_def.regions}");
+                LoadRegionsQuery(LoadStringFromRes($"ARKRegionsEditor.Ressources.{map.regions}"));
+            }
+            else
+            {
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog()
+                {
+                    Filter = "ARK Wiki Regions Data File|*.json",
+                    Title = "Sélectionnez le fichier de données de régions à importer"
+                };
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    LoadRegionsQuery(File.ReadAllText(openFileDialog.FileName));
+                }
             }
         }
 
         private void buttonLoadBiomes_Click(object sender, RoutedEventArgs e)
         {
-            LoadBiomes(comboBoxMap.SelectedItem.ToString());
+            if (MessageBox.Show("Cette opération va remplacer toutes les données de régions, voulez-vous continuer ?", "Charger un fichier de biomes", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            {
+                // Chargement à partir du lien d'un fichier externe
+                var openFileDialog = new Microsoft.Win32.OpenFileDialog()
+                {
+                    Filter = "Obelisk Biomes Data File|*.json",
+                    Title = "Sélectionnez le fichier de données de biomes à importer"
+                };
+                if (openFileDialog.ShowDialog() == true)
+                {
+                    LoadBiomes(openFileDialog.FileName);
+                }
+            }
+        }
+
+        private void textEditorRegions_TextChanged(object sender, EventArgs e)
+        {
+            if (lockInterface_ != 0) return;
+            LoadRegionsQuery(textEditorRegions.Text);
         }
 
         public string LoadStringFromRes(string res)
@@ -390,7 +513,7 @@ namespace ARKRegionsEditor
         public void LoadTranslations(string file_path)
         {
             translation_.Clear();
-            reserveTranslation_.Clear();
+            reverseTranslation_.Clear();
             if (File.Exists(file_path))
             {
                 var json_data = File.ReadAllText(file_path);
@@ -403,7 +526,7 @@ namespace ARKRegionsEditor
                     foreach (var item in sub.Children)
                     {
                         translation_[item.Source.Text] = item.Translation.Text;
-                        reserveTranslation_[item.Translation.Text] = item.Source.Text;
+                        reverseTranslation_[item.Translation.Text] = item.Source.Text;
                     }
                     ConsoleWriteLine($"{translation_.Count} traductions chargées");
                     checkBoxTranslate.IsEnabled = true;
@@ -412,84 +535,103 @@ namespace ARKRegionsEditor
             else
             {
                 ConsoleWriteLine($"fichier de traduction {file_path} n'existe pas.");
+                tabControlMain.SelectedItem = tabItemConsole;
             }
         }
 
         public void ClearData()
         {
+            saveCounter_ = 0;
             regionsList_.Clear();
-            biomesList_.Clear();
             zonesList_.Clear();
             mapViewer.ClearZones();
         }
 
-        public void LoadRegions(string jsonRegions)
+        public void LoadRegionsFromJson(string jsonString)
         {
-            buttonUpdateFromRegions.IsEnabled = false;
-            ClearData();
-
-            if (String.IsNullOrEmpty(jsonRegions))
+            if (String.IsNullOrEmpty(jsonString))
             {
+                ConsoleWriteLine("le fichier de données est vide.");
+                tabControlMain.SelectedItem = tabItemConsole;
                 return;
             }
 
-            try
+            var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
+            var jsonRegions = JsonSerializer.Deserialize<ArkWikiJsonRegions>(jsonString);
+            if (jsonRegions.coordinateBorders != null)
             {
-                var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
-
-                ConsoleWriteLine($"Chargement des régions pour '{comboBoxMap.SelectedValue}'");
-                jsonRegions_ = JsonSerializer.Deserialize<ArkWikiJsonRegions>(jsonRegions);
-                if (jsonRegions_.coordinateBorders != null)
+                if (map != null && map.coordinateBorders != null)
                 {
-                    if (map != null && map.coordinateBorders != null)
+                    if (!jsonRegions.coordinateBorders.Equals(map.coordinateBorders))
                     {
-                        if (!jsonRegions_.coordinateBorders.Equals(map.coordinateBorders))
-                        {
-                            ConsoleWriteLine("Les coordonnées des bords ne sont pas les mêmes !");
-                        }
+                        ConsoleWriteLine("Les coordonnées des bords ne sont pas les mêmes !");
+                        tabControlMain.SelectedItem = tabItemConsole;
                     }
                 }
+            }
+            ConsoleWriteLine($"{jsonRegions.regions.Count} régions à analyser");
 
-                ConsoleWriteLine($"{jsonRegions_.regions.Count} régions à analyser");
-                var regions_list = new List<Region>();
-                foreach (var region in jsonRegions_.regions)
+            // Construction de la liste des régions à partir des données de régions du wiki
+            var regions_list = new List<Region>();
+            foreach (var region in jsonRegions.regions)
+            {
+                var region_item = new Region()
                 {
-                    var region_name = region.Key;
+                    Name = region.Key,
+                    Label = region.Key
+                };
+                // [longitude, latitude, longeur_longitude, longeur_latitude]
+                foreach (var zone_def in region.Value)
+                {
+                    var zone = new MapZone()
+                    {
+                        Lon = zone_def[0],
+                        Lat = zone_def[1],
+                        LonLength = zone_def[2],
+                        LatLength = zone_def[3]
+                    };
+                    region_item.zones.Add(zone);
+                }
+                regions_list.Add(region_item);
+            }
+            LoadRegions(regions_list);
+        }
+
+        // Utiliser à partir de LoadRegionsFromJson et de LoadBiomes
+        public void LoadRegions(List<Region> regionslist)
+        {
+            lockInterface_++;
+            ClearData();
+            try
+            {
+                ConsoleWriteLine($"Chargement des régions pour '{mapViewer.MapName}'");
+                var regions_list = new List<Region>();
+                foreach (var region in regionslist)
+                {
                     if (checkBoxTranslate.IsChecked == true)
                     {
-                        if (translation_.ContainsKey(region_name))
+                        if (translation_.ContainsKey(region.Name))
                         {
-                            region_name = translation_[region_name];
+                            region.Label = translation_[region.Name];
+                        }
+                        else if (reverseTranslation_.ContainsKey(region.Name))
+                        {
+                            region.Label = reverseTranslation_[region.Name];
                         }
                         else
                         {
-                            ConsoleWriteLine($"Traduction pour '{region_name}' non trouvé");
+                            ConsoleWriteLine($"Traduction pour '{region.Name}' non trouvé");
                         }
                     }
-                    var region_item = new Region()
-                    {
-                        Name = region.Key,
-                        Label = region_name
-                    };
                     // [longitude, latitude, longeur_longitude, longeur_latitude]
-                    foreach (var zone_def in region.Value)
+                    foreach (var zone in region.zones)
                     {
-                        var zone = new MapZone()
-                        {
-                            Lon = zone_def[0],
-                            Lat = zone_def[1],
-                            LonLength = zone_def[2],
-                            LatLength = zone_def[3]
-                        };
-                        if (checkboxRoundZone.IsChecked == true)
-                        {
-                            zone.RoundCoordinates();
-                        }
-                        region_item.zones.Add(zone);
+                        zone.RoundCoordinates();
                     }
-                    CheckZones(region_item, false);
-                    CheckIntersects(region_item);
-                    regions_list.Add(region_item);
+                    // Trie des zones ?
+                    //region.zones.Sort(MapZone.CompareTo);
+                    CheckZones(region);
+                    regions_list.Add(region);
                 }
                 // Remove empty biomes
                 var empty_list = new List<Region>();
@@ -514,18 +656,55 @@ namespace ARKRegionsEditor
                 listviewRegionsSort();
                 ConsoleWriteLine($"{regionsList_.Count} régions chargées");
                 ConsoleWriteLine($"{zones_ctr} zones chargées");
-                // Mise à jour en différé sinon ça plante
-                var timer_ur = new Timer(TimerCallback_UpdateRegions, null, 10, 0);
-                buttonUpdateFromRegions.IsEnabled = true;
-                tabControlMap.SelectedItem = tabItemRegions;
                 mapViewer.RescaleCanvas(mapViewer.Scale);
+                labelInfo.Text = $"{regionsList_.Count} régions chargés ({zones_ctr} zones)";
+                BuildJsonRegionsData();
+                tabControlMap.SelectedItem = tabItemRegions;
+                tabControlMain.SelectedItem = tabItemMap;
+                if (checkBoxTranslate.IsChecked == true)
+                {
+                    listviewRegionsColumnName.Width = 120;
+                }
             }
             catch (Exception ex) {
                 MessageBox.Show("Error loading region ! ({0})", ex.Message);
             }
+            lockInterface_--;
         }
 
-        private void SaveDataRegions()
+        private string MapNameFromFile(string fullFilename)
+        {
+            // Genesis_Part_1_Topographic_Map.jpg
+            // Genesis_Part_2_Map.jpg
+            var filename = Path.GetFileName(fullFilename);
+            int pos = filename.IndexOf("Topographic");
+            if (pos >= 0)
+            {
+                return filename.Substring(0, pos - 1).Replace('_',' ');
+            }
+            else if((pos = filename.IndexOf("Map")) >= 0)
+            {
+                return filename.Substring(0, pos - 1).Replace('_', ' ');
+            }
+            return filename;
+        }
+
+        private void CreateMapSaveData(string mapFilename)
+        {
+            if (cfg_.maps == null)
+            {
+                cfg_.maps = new Dictionary<string, MapListJsonItem>();
+            }
+            var map = new MapListJsonItem()
+            {
+                mapFile = mapFilename,
+                at = new List<List<float>> { new List<float> { 0, 0 }, new List<float> { 100, 100 } }
+            };
+            var map_name = MapNameFromFile(mapFilename);
+            cfg_.maps[map_name] = map;
+        }
+
+        private void SaveDataRegions(string str)
         {
             // Check if a file exists
             var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
@@ -558,15 +737,14 @@ namespace ARKRegionsEditor
                 }
                 SaveMainConfig();
             }
-            File.WriteAllText(map.regionsFile, textEditorRegions.Text);
+            File.WriteAllText(map.regionsFile, str);
             saveCounter_ = 0;
             buttonSaveRegions.IsEnabled = false;
         }
 
         private void SaveRegions()
         {
-            UpdateRegions();
-            SaveDataRegions();
+            SaveDataRegions(BuildJsonRegionsData());
         }
 
         void BuildRegionPriority()
@@ -578,125 +756,100 @@ namespace ARKRegionsEditor
             }
         }
 
-        void TimerCallback_UpdateRegions(Object state)
+        // Construction du json de données et mise à jour de textEditorRegions
+        public string BuildJsonRegionsData()
         {
-            textEditorRegions.Dispatcher.BeginInvoke(new Action(() => { UpdateRegions(); }));
-        }
-
-        public void UpdateRegions()
-        {
-            buttonSaveRegions.IsEnabled = false;
-            buttonSaveDataRegions.IsEnabled = false;
-            if (jsonRegions_ != null)
+            string str;
+            var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
+            // Attention le formattage du json doit être compacte mais pas sur une seule ligne !
+            var json_lines = new List<string>();
+            json_lines.Add("{");
+            if (map.coordinateBorders != null)
             {
-                string str;
-                var json_lines = new List<string>();
-                // Attention le formattage du json doit être compacte mais pas sur une seule ligne !
-                json_lines.Add("{");
-                if (jsonRegions_.coordinateBorders != null)
+                var cb = map.coordinateBorders;
+                str = $"    'coordinateBorders': {{ 'top': {cvt_float_string(cb.top)}, 'left': {cvt_float_string(cb.left)}, " +
+                    $"'bottom': {cvt_float_string(cb.bottom)}, 'right': {cvt_float_string(cb.right)} }},";
+                json_lines.Add(str.Replace('\'', '"'));
+            }
+            json_lines.Add("    \"regions\": {");
+            foreach (var region in regionsList_)
+            {
+                StringBuilder str_zones = new StringBuilder(2048);
+                str_zones.Append($"        \"{region.Label}\":[");
+                var zones_list = new List<List<float>>();
+                foreach (var zone_src in region.zones)
                 {
-                    var cb = jsonRegions_.coordinateBorders;
-                    str = $"    'coordinateBorders': {{ 'top': {cvt_float_string(cb.top)}, 'left': {cvt_float_string(cb.left)}, " +
-                        $"'bottom': {cvt_float_string(cb.bottom)}, 'right': {cvt_float_string(cb.right)} }},";
-                    json_lines.Add(str.Replace('\'', '"'));
-                }
-                json_lines.Add("    \"regions\": {");
-                jsonRegions_.regions.Clear();
-                foreach (var region in regionsList_)
-                {
-                    StringBuilder str_zones = new StringBuilder(2048);
-                    str_zones.Append($"        \"{region.Label}\":[");
-                    var zones_list = new List<List<float>>();
-                    foreach (var zone_src in region.zones)
+                    var zone_dst = new List<float>();
+                    zone_dst.Add(zone_src.Lon);
+                    zone_dst.Add(zone_src.Lat);
+                    zone_dst.Add(zone_src.LonLength);
+                    zone_dst.Add(zone_src.LatLength);
+                    zones_list.Add(zone_dst);
+                    str_zones.Append("[");
+                    foreach (var z in zone_dst)
                     {
-                        var zone_dst = new List<float>();
-                        zone_dst.Add(zone_src.Lon);
-                        zone_dst.Add(zone_src.Lat);
-                        zone_dst.Add(zone_src.LonLength);
-                        zone_dst.Add(zone_src.LatLength);
-                        zones_list.Add(zone_dst);
-                        str_zones.Append("[");
-                        foreach (var z in zone_dst)
-                        {
-                            str = cvt_float_string(z);
-                            str_zones.Append($"{str},");
-                        }
-                        str_zones.Remove(str_zones.Length - 1, 1);
-                        str_zones.Append("],");
+                        str = cvt_float_string(z);
+                        str_zones.Append($"{str},");
                     }
                     str_zones.Remove(str_zones.Length - 1, 1);
                     str_zones.Append("],");
-                    jsonRegions_.regions.Add(region.Label, zones_list);
-                    json_lines.Add(str_zones.ToString());
                 }
-                str = json_lines[json_lines.Count - 1];
-                json_lines[json_lines.Count - 1] = str.Remove(str.Length - 1, 1);
-                json_lines.Add("    }" + (jsonRegions_.forceDLC != null ? "," : ""));
-                if (jsonRegions_.forceDLC != null)
-                {
-                    str = $"    'forceDLC': [ ";
-                    foreach (var dlc in jsonRegions_.forceDLC)
-                    {
-                        str += $"'{dlc}', ";
-                    }
-                    str = str.Remove(str.Length - 2, 2);
-                    str += " ]";
-                    json_lines.Add(str.Replace('\'', '"'));
-                }
-                json_lines.Add("}");
-                lockInterface_++;
-                textEditorRegions.Text = String.Join("\n", json_lines);
-                lockInterface_--;
-                //buttonSaveRegions.IsEnabled = true;
-                buttonSaveDataRegions.IsEnabled = true;
+                str_zones.Remove(str_zones.Length - 1, 1);
+                str_zones.Append("],");
+                json_lines.Add(str_zones.ToString());
             }
+            str = json_lines[json_lines.Count - 1];
+            json_lines[json_lines.Count - 1] = str.Remove(str.Length - 1, 1);
+            json_lines.Add("    }");
+            json_lines.Add("}");
+            str = String.Join("\n", json_lines);
+            // Utilisation d'un DispatcherTimer pour éviter un crash si appel à partir de textEditorRegions
+            var timer = new DispatcherTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(100);
+            timer.Tick += timer_Tick;
+            timer.Tag = str;
+            timer.Start();
+            return str;
+        }
+
+        void timer_Tick(object sender, EventArgs e)
+        {
+            var timer = sender as DispatcherTimer;
+            timer.Stop();
+            lockInterface_++;
+            textEditorRegions.Text = timer.Tag as string;
+            lockInterface_--;
         }
 
         // Charge un fichier de biomes de Purlovia / Obelisk
-        public void LoadBiomes(string map_name)
+        public void LoadBiomes(string filename)
         {
-            var map = mapList_.maps.Find(x => x.name == map_name);
-            var path = Path.Combine(cfg_.obelisk_path, map.biomes);
-            var json_data = File.ReadAllText(path);
+            var json_data = File.ReadAllText(filename);
             var mainJson = JsonSerializer.Deserialize<ObeliskJsonBiomes>(json_data);
-
-            buttonUpdateFromBiomes.IsEnabled = false;
-            biomesList_.Clear();
-
+            // Construction de la liste des régions puis appel de LoadRegions
             ConsoleWriteLine($"{mainJson.biomes.Count} biomes à analyser");
-            var biomes_list = new List<Region>();
+            var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
+            var regions_list = new List<Region>();
             foreach (var biome in mainJson.biomes)
             {
                 if (!String.IsNullOrEmpty(biome.name))
                 {
-                    var region = biomes_list.FirstOrDefault(x => x.Label == biome.name);
+                    var region = regions_list.FirstOrDefault(x => x.Label == biome.name);
                     if (region == null)
                     {
                         region = new Region(biome);
-                        biomes_list.Add(region);
+                        regions_list.Add(region);
                     }
                     foreach (var zone in biome.boxes)
                     {
                         var dz = new MapZone(zone, map.coordinateBorders);
-                        if (dz.LonLength >= 0 && dz.LatLength >= 0)
+                        if (!CheckDuplicate(region.zones, dz))
                         {
-                            if (!CheckDuplicate(region.zones, dz))
-                            {
-                                region.zones.Add(dz);
-
-                                if (dz.LonLength < 2 && dz.LatLength < 2)
-                                {
-                                    region.Warning = true;
-                                }
-                            }
-                            else
-                            {
-                                ConsoleWriteLine($"Doublon trouvé pour {biome.name} : ({zone.start.lat};{zone.start.lon})");
-                            }
+                            region.zones.Add(dz);
                         }
                         else
                         {
-                            ConsoleWriteLine($"Biome '{biome.name}': zone ({dz.Lat};{dz.Lon};{dz.LatLength};{dz.LonLength}) supprimée car trop petite");
+                            ConsoleWriteLine($"Doublon trouvé pour {biome.name} : ({zone.start.lat};{zone.start.lon})");
                         }
                     }
                 }
@@ -706,63 +859,8 @@ namespace ARKRegionsEditor
                     ConsoleWriteLine($"Biome '{biome.name}': zone ({dz.start.lat};{dz.start.lon}) supprimée car pas de nom");
                 }
             }
-            labelInfo.Text = $"{biomes_list.Count} biomes chargés";
-            ConsoleWriteLine(labelInfo.Text);
-
-            // Remove empty biomes
-            var empty_list = new List<Region>();
-            foreach (var item in biomes_list)
-            {
-                if (item.zones.Count == 0)
-                {
-                    empty_list.Add(item);
-                }
-            }
-            foreach (var item in empty_list)
-            {
-                biomes_list.Remove(item);
-            }
-
-            // Chargement par ordre de priortité et non alphabétique
-            foreach (var bbs in biomes_list.OrderBy(item => item.Priority))
-            {
-                CheckZones(bbs, false);
-                CheckIntersects(bbs);
-                biomesList_.Add(bbs);
-            }
-            tabControlMap.SelectedItem = tabItemBiomes;
-            buttonUpdateFromBiomes.IsEnabled = true;
-        }
-
-        public void BuildRegionsFromBiomes()
-        {
-            if (checkBoxTranslate.IsChecked == true)
-            {
-                listviewRegionsColumnName.Width = 100;
-            }
-            regionsList_.Clear();
-            foreach (var biome in biomesList_)
-            {
-                if (checkBoxTranslate.IsChecked == true)
-                {
-                    if (translation_.ContainsKey(biome.Name))
-                    {
-                        biome.Label = translation_[biome.Name];
-                    }
-                    else
-                    {
-                        ConsoleWriteLine($"Traduction pour '{biome.Name}' non trouvé");
-                    }
-                }
-                regionsList_.Add(biome);
-            }
-            var map = mapList_.maps.Find(x => x.name == mapViewer.MapName);
-            jsonRegions_ = new ArkWikiJsonRegions();
-            if (map.coordinateBorders != null)
-            {
-                jsonRegions_.coordinateBorders = map.coordinateBorders;
-            }
-            jsonRegions_.regions = new Dictionary<string, List<List<float>>>();
+            LoadRegions(regions_list);
+            IncSaveCounter();
         }
 
         // Recherche 'zone' dans 'biomes'
@@ -795,6 +893,7 @@ namespace ARKRegionsEditor
 
         public void CheckIntersects(Region region)
         {
+            region.Warning = false;
             foreach (var zone in region.zones)
             {
                 CheckIntersectsWith(region, zone);
@@ -805,14 +904,16 @@ namespace ARKRegionsEditor
         {
             foreach (var dst in region.zones)
             {
-                if (dst != zone)
+                if (dst != zone && !zone.Warning && !dst.Warning)
                 {
                     if (dst.IntersectsWith(zone))
                     {
                         var intersect = MapZone.Intersect(dst, zone);
-                        if (intersect.LatLength != 0 && intersect.LonLength != 0)
+                        if (intersect != null && intersect.LatLength != 0 && intersect.LonLength != 0)
                         {
                             region.Warning = true;
+                            dst.Warning = true;
+                            zone.Warning = true;
                             return dst;
                         }
                     }
@@ -829,57 +930,40 @@ namespace ARKRegionsEditor
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
-        private void CheckZones(Region region, bool selection)
+        private void CheckZones(Region region)
         {
             // Check Zones
-            int zone_inside = 0;
-            int zone_intersect = 0;
-            if (selection)
-                mapViewer.ClearHighlightZones();
-            region.Error = false;
-            region.Warning = false;
-            foreach (var zone in region.zones)
-            {
-                int highlight = 0;
-                var zdst = CheckInside(region.zones, zone);
-                if (zdst != null)
-                {
-                    zone.Inside = true;
-                    zone_inside++;
-                    highlight++;
-                    if (selection)
-                        mapViewer.HighlightZone(zone, Colors.White);
-                    region.Error = true;
-                }
-                zdst = CheckIntersectsWith(region, zone);
-                if (zdst != null)
-                {
-                    if (highlight == 0)
-                    {
-                        zone_intersect++;
-                        if (selection)
-                            mapViewer.HighlightZone(zone, Colors.Cyan);
-                    }
-                }
-            }
-            if (selection == false && checkboxRemoveInsideZone.IsChecked == true)
-            {
-                RemoveInsideZones(region);
-            }
-            if (selection)
-                labelInfo.Text = $"Zones chargées: {zonesList_.Count}, zones incluses : {zone_inside}, zones avec intersection : {zone_intersect}";
+            RemoveInsideZones(region);
+            CheckIntersects(region);
         }
 
-        private void LoadZones(Region region)
+        private void LoadZones(Region region, bool highlight=false)
         {
             mapViewer.ClearZones();
             mapViewer.LoadZones(region);
+            if (highlight)
+                mapViewer.ClearHighlightZones();
             zonesList_.Clear();
+            int zone_intersect = 0;
             foreach (var zone in region.zones)
             {
                 zonesList_.Add(zone);
+                if (highlight)
+                {
+                    if (zone.Error)
+                    {
+                        mapViewer.HighlightZone(zone, Colors.White);
+                    }
+                    else if (zone.Warning)
+                    {
+                        mapViewer.HighlightZone(zone, Colors.Cyan);
+                        zone_intersect++;
+                    }
+                }
             }
             listviewZones.Tag = region;
+            if (highlight)
+                labelInfo.Text = $"Zones chargées: {zonesList_.Count}, zones avec intersection : {zone_intersect}";
         }
 
         private void listviewRegions_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -887,8 +971,7 @@ namespace ARKRegionsEditor
             if (e.AddedItems.Count > 0)
             {
                 var region = e.AddedItems[0] as Region;
-                LoadZones(region);
-                CheckZones(region, true);
+                LoadZones(region, true); // true => gestion des highlights de zone
             }
         }
 
@@ -950,7 +1033,6 @@ namespace ARKRegionsEditor
                 region.zones.Remove(item);
             }
             region.Error = false;
-            region.Update();
             return list_to_remove.Count > 0;
         }
 
@@ -962,50 +1044,6 @@ namespace ARKRegionsEditor
                 region.zones.Remove(item);
             }
             region.Update();
-        }
-
-        private void listviewBiomes_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (e.AddedItems.Count > 0)
-            {
-                var biome = e.AddedItems[0] as Region;
-                LoadZones(biome);
-                CheckZones(biome, true);
-            }
-        }
-
-        private void listviewBiomes_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            var biome = listviewBiomes.SelectedItem as Region;
-            if (biome != null)
-            {
-                mapViewer.ZoomToMapPos(biome.zones[0].Center, true, Colors.White);
-                mapViewer.ClearHighlightZones();
-            }
-        }
-
-        private void listviewBiomes_KeyUp(object sender, KeyEventArgs e)
-        {
-            // Ctrl-C
-            if (e.Key == Key.C && (e.KeyboardDevice.Modifiers & ModifierKeys.Control) != 0)
-            {
-                var region = listviewBiomes.SelectedItem as Region;
-                if (region != null)
-                {
-                    Clipboard.SetText(region.Label);
-                    ConsoleWriteLine(region.Label);
-                }
-            }
-            // Del
-            else if (e.Key == Key.Delete)
-            {
-                var biome = listviewBiomes.SelectedItem as Region;
-                if (biome != null)
-                {
-                    biomesList_.Remove(biome);
-                    ConsoleWriteLine($"Suppression du biome '{biome.Label}'");
-                }
-            }
         }
 
         private void listviewZones_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1031,12 +1069,6 @@ namespace ARKRegionsEditor
         {
         }
 
-        private void textEditorRegions_TextChanged(object sender, EventArgs e)
-        {
-            if (lockInterface_ != 0) return;
-            LoadRegions(textEditorRegions.Text);
-        }
-
         private void comboBoxZonesColor_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (lockInterface_ != 0) return;
@@ -1060,22 +1092,6 @@ namespace ARKRegionsEditor
             {
                 return $"{value.ToString("F2", CultureInfo.InvariantCulture)}";
             }
-        }
-
-        private void buttonUpdateFromRegions_Click(object sender, RoutedEventArgs e)
-        {
-            UpdateRegions();
-        }
-
-        private void buttonUpdateFromBiomes_Click(object sender, RoutedEventArgs e)
-        {
-            BuildRegionsFromBiomes();
-            UpdateRegions();
-        }
-
-        private void buttonSaveDataRegions_Click(object sender, RoutedEventArgs e)
-        {
-            SaveDataRegions();
         }
 
         private void buttonSaveRegions_Click(object sender, RoutedEventArgs e)
@@ -1171,6 +1187,7 @@ namespace ARKRegionsEditor
                     regionsList_.Insert(idx_dst, region_src);
                     BuildRegionPriority();
                     listviewRegionsSort();
+                    IncSaveCounter();
                 }
             }
         }

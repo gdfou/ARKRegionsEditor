@@ -177,11 +177,13 @@
     <EmbeddedResource Include="Ressources\Aberration_Regions.json" />
     <EmbeddedResource Include="Ressources\Crystal_Isles_Regions.json" />
     <EmbeddedResource Include="Ressources\Genesis_Part_1_Regions.json" />
+    <EmbeddedResource Include="Ressources\Genesis_Part_2_Regions.json" />
     <EmbeddedResource Include="Ressources\Lost_Island_Regions.json" />
     <EmbeddedResource Include="Ressources\Scorched_Earth_Regions.json" />
     <EmbeddedResource Include="Ressources\The_Center_Regions.json" />
     <EmbeddedResource Include="Ressources\The_Island_Regions.json" />
     <EmbeddedResource Include="Ressources\Ragnarok_Regions.json" />
+    <EmbeddedResource Include="Ressources\Valguero_Regions.json" />
     <EmbeddedResource Include="Ressources\Extinction_Regions.json" />
     <EmbeddedResource Include="Ressources\Fjordur_Regions.json" />
   </ItemGroup>

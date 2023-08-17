@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -59,6 +58,8 @@ namespace ARKRegionsEditor
             // just a move that decides the mode
             gridMap.MouseMove += OnMouseMove;
 
+            gridMap.LayoutUpdated += GridMap_LayoutUpdated;
+
             canvasZones.MouseLeftButtonDown += OnMouseLeftButtonDown;
             canvasZones.MouseMove += OnMouseMoveCanvas;
 
@@ -66,6 +67,16 @@ namespace ARKRegionsEditor
             canvasRegion.MouseMove += OnMouseMoveCanvas;
 
             ZoomInFull();
+        }
+
+        // A la première mise à jour graphique de gridMap on initialise ViewArea
+        private void GridMap_LayoutUpdated(object sender, EventArgs e)
+        {
+            if (gridMap.ActualWidth != 0)
+            {
+                gridMap.LayoutUpdated -= GridMap_LayoutUpdated;
+                ZoomInFull();
+            }
         }
 
         public new FrameworkElement Content
@@ -98,11 +109,24 @@ namespace ARKRegionsEditor
             {
                 try
                 {
-                    mapImage.Source = BitmapFrame.Create(Assembly.GetExecutingAssembly().GetManifestResourceStream(value));
+                    // Test ressource ou ficheir ?
+                    var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(value);
+                    if (stream != null)
+                    {
+                        mapImage.Source = BitmapFrame.Create(stream);
+                    }
+                    else if (System.IO.File.Exists(value))
+                    {
+                        mapImage.Source = new BitmapImage(new Uri(value));
+                    }
+                    else
+                    {
+                        MessageBox.Show($"la carte {value} n'a pas été trouvée !");
+                    }
                 }
                 catch
                 {
-                    MessageBox.Show($"la carte {value} n'a pas été trouvé dans les ressources !");
+                    MessageBox.Show($"la carte {value} n'a pas été trouvée dans les ressources !");
                 }
                 if (mapSize_ == null)
                 {
@@ -197,8 +221,8 @@ namespace ARKRegionsEditor
             EditMode = false;
             DrawRegion();
             RescaleCanvas(Scale);
-            SendCommand("ExitEditMode");
             SendCommand("UpdateRegion");
+            SendCommand("ExitEditMode");
         }
 
         private void buttonCancel_Click(object sender, RoutedEventArgs e)
@@ -216,6 +240,7 @@ namespace ARKRegionsEditor
         public void Clear()
         {
             MapName = null;
+            MapBorderWidth = 0;
             mapSize_ = new MapSize(0, 0, 100, 100);
             mapImage.Source = null;
             ClearZones();
@@ -268,6 +293,21 @@ namespace ARKRegionsEditor
                 canvasZones.Children.Add(map_item.Canvas);
                 zones_.Add(map_item);
             }
+            DrawRegion();
+            RescaleCanvas(Scale);
+        }
+
+        public void AddZone(MapZone zone)
+        {
+            var map_item = new MapItem(this, zone);
+            map_item.BuildGeometry(zonesColor_, zonesOpacity_);
+            map_item.Rescale(Scale);
+            if (EditMode)
+            {
+                map_item.Save();
+            }
+            canvasZones.Children.Add(map_item.Canvas);
+            zones_.Add(map_item);
             DrawRegion();
             RescaleCanvas(Scale);
         }
@@ -371,9 +411,23 @@ namespace ARKRegionsEditor
             }
         }
 
+        public bool CheckZoneEditMode(MapItem mapItem)
+        {
+            foreach (var item in zones_)
+            {
+                if (item != mapItem)
+                {
+                    if (item.EditMode)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         public void ClearHighlightZones()
         {
-            GridVisibility = false;
             canvasZones.BeginInit();
             foreach (var item in zones_)
             {
@@ -468,11 +522,11 @@ namespace ARKRegionsEditor
             var p0 = new Point(scrollViewer.HorizontalOffset, scrollViewer.VerticalOffset);
             var mgc = e?.GetPosition(gridMap) ?? new Point(0, 0);
             var mpt = mapSize_.ConvertPixelPointToMap(mgc.X, mgc.Y);
-#if DEBUG
+#if false //DEBUG
             //labelInfo.Text = $"P=({(int)mgc.X};{(int)mgc.Y}) M=({mpt.lat:0.00};{mpt.lon:0.00}) VA=({(int)va.X};{(int)va.Y}) ({(int)p0.X};{(int)p0.Y}) S={Scale:0.0000}";
             labelInfo.Text = $"Pixels=({(int)mgc.X};{(int)mgc.Y}) MapPos=(lat {mpt.lat:0.00};lon {mpt.lon:0.00}) Scale={Scale:0.0000}";
 #else
-            labelInfo.Text = $"lat {mpt.lat:00.00}, lon {mpt.lon:00.00}";
+            labelInfo.Text = $"Lat {mpt.lat:00.00}, Lon {mpt.lon:00.00}";
 #endif
         }
 
@@ -579,14 +633,12 @@ namespace ARKRegionsEditor
             }
         }
 
-        // Fit => use a timer and a dispatcher because gridMap is not initialised when the this fonction is called
-        void TimerCallback(Object state)
-        {
-            gridMap.Dispatcher.BeginInvoke(new Action(() => { ViewArea = new Rect(0, 0, gridMap.ActualWidth, gridMap.ActualHeight); }));
-        }
         public void ZoomInFull()
         {
-            var timer = new Timer(TimerCallback, null, 10, 0);
+            if (gridMap.ActualWidth != 0)
+            {
+                ViewArea = new Rect(0, 0, gridMap.ActualWidth, gridMap.ActualHeight);
+            }
         }
 
         public void ZoomTo(double left, double top)
@@ -694,27 +746,12 @@ namespace ARKRegionsEditor
             mouseCaptureMove_ = 0;
         }
 
-        void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        void ComputeScale(double deltaScale, Point pos)
         {
-            double delta_scale = 1;
-            if (e.Delta > 0)
-            {
-                delta_scale /= 2;
-            }
-            if (e.Delta < 0)
-            {
-                delta_scale *= 2;
-            }
-            if (delta_scale > MaxScale)
-            {
-                delta_scale = MaxScale;
-            }
-
-            Point pos = e.GetPosition(gridMap);
             Rect view = ViewArea;
 
-            double nuWidth = view.Width * delta_scale;
-            double nuHeight = view.Height * delta_scale;
+            double nuWidth = view.Width * deltaScale;
+            double nuHeight = view.Height * deltaScale;
 
             // check scaling max
             double scale = scrollViewer.ViewportWidth / nuWidth;
@@ -736,6 +773,24 @@ namespace ARKRegionsEditor
             view.Height = nuHeight;
 
             ViewArea = view;
+        }
+
+        void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            double delta_scale = 1;
+            if (e.Delta > 0)
+            {
+                delta_scale /= 2;
+            }
+            if (e.Delta < 0)
+            {
+                delta_scale *= 2;
+            }
+            if (delta_scale > MaxScale)
+            {
+                delta_scale = MaxScale;
+            }
+            ComputeScale(delta_scale, e.GetPosition(gridMap));
         }
 
         void OnSliderValueChanged(object sender,

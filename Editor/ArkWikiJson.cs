@@ -257,6 +257,14 @@ namespace ARKRegionsEditor
             public float right { get; set; }
             public float bottom { get; set; }
 
+            public ArkWikiJsonRect()
+            {
+                top = 0;
+                left = 0;
+                right = 100;
+                bottom = 100;
+            }
+
             public bool Equals(ArkWikiJsonRect src)
             {
                 return (src.left == this.left) && (src.top == this.top) && (src.right == this.right) && (src.bottom == this.bottom);

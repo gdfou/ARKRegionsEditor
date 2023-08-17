@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.6.33723.286
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ARKRegionsEditor", "Editor\ARKRegionsEditor.csproj", "{120DA64E-D1B0-4D35-96CA-E3986504A1B9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ARKWikiRegionsEditor", "Editor\ARKWikiRegionsEditor.csproj", "{120DA64E-D1B0-4D35-96CA-E3986504A1B9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyntaxEdit", "SyntaxEdit\SyntaxEdit.csproj", "{6C55B776-26D4-4DB3-A6AB-87E783B2F3D1}"
 EndProject
