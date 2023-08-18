@@ -111,6 +111,7 @@
     <Compile Include="MapScrollViewer.xaml.cs">
       <DependentUpon>MapScrollViewer.xaml</DependentUpon>
     </Compile>
+    <Compile Include="MapZone.cs" />
     <Compile Include="SortAdorner.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>

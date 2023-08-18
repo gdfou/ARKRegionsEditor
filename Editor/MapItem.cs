@@ -290,6 +290,22 @@ namespace ARKRegionsEditor
             }
         }
 
+        // Attention cette event n'est pas lien directement lais est appellé par le 'ScrollViewer' de la carte
+        public void KeyDown(object sender, KeyEventArgs e)
+        {
+            if (editionMode_ == true)
+            {
+                if (e.Key == Key.Escape) // Menu 'cancel'
+                {
+                    ExecuteCommand("cancel");
+                }
+                else if (e.Key == Key.Enter) // Menu 'valid'
+                {
+                    ExecuteCommand("valid");
+                }
+            }
+        }
+
         protected void Edge_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (editionMode_ == true)
@@ -395,10 +411,9 @@ namespace ARKRegionsEditor
             }
         }
 
-        private void Menu_Click(object sender, RoutedEventArgs e)
+        private void ExecuteCommand(string cmd)
         {
             ClearHightlight(); // fin du mode edition de la zone
-            string cmd = (sender as MenuItem).Tag as string;
             switch (cmd)
             {
                 case "valid":
@@ -438,6 +453,11 @@ namespace ARKRegionsEditor
                         break;
                     }
             }
+        }
+
+        private void Menu_Click(object sender, RoutedEventArgs e)
+        {
+            ExecuteCommand((sender as MenuItem).Tag as string);
         }
     }
 }

@@ -37,6 +37,7 @@ namespace ARKRegionsEditor
         bool regionWikiStyle_;
         Region currentRegion_;
         bool editMode_;
+        int lockKeyboard_;
 
         public MapScrollViewer()
         {
@@ -53,6 +54,9 @@ namespace ARKRegionsEditor
             // Button up for capture mode is only handled by the scroll view.
             scrollViewer.PreviewMouseLeftButtonUp += OnMouseLeftButtonUp;
 
+            scrollViewer.KeyDown += ScrollViewer_KeyDown;
+            scrollViewer.KeyUp += ScrollViewer_KeyUp;
+
             // Button down from any object : Needed to drag map with mouse button
             gridMap.MouseLeftButtonDown += OnMouseLeftButtonDown;
             // just a move that decides the mode
@@ -67,6 +71,27 @@ namespace ARKRegionsEditor
             canvasRegion.MouseMove += OnMouseMoveCanvas;
 
             ZoomInFull();
+        }
+
+        private void ScrollViewer_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (EditMode == true && lockKeyboard_ == 0)
+            {
+                foreach (var zone in zones_)
+                {
+                    if (zone.EditMode == true)
+                    {
+                        lockKeyboard_++;
+                        zone.KeyDown(zone, e);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        private void ScrollViewer_KeyUp(object sender, KeyEventArgs e)
+        {
+            lockKeyboard_ = 0;
         }
 
         // A la première mise à jour graphique de gridMap on initialise ViewArea

@@ -112,7 +112,14 @@
                                       PreviewMouseMove="listviewRegions_MouseMove"
                                       DragEnter="listviewRegions_DragEnter"
                                       DragLeave="listviewRegions_DragLeave"
-                                      Drop="listviewRegions_Drop">
+                                      Drop="listviewRegions_Drop"
+                                      ContextMenuOpening="listviewRegions_ContextMenuOpening">
+                                <ListView.ContextMenu >
+                                    <ContextMenu>
+                                        <MenuItem Header="Renommer" Tag="rename" Click="MenuItem_Click"/>
+                                        <MenuItem Header="Supprimer" Tag="delete" Click="MenuItem_Click"/>
+                                    </ContextMenu>
+                                </ListView.ContextMenu>
                                 <ListView.View>
                                     <GridView>
                                         <GridViewColumn Width="180">
@@ -122,8 +129,8 @@
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Orientation="Vertical">
-                                                        <TextBlock Text="{Binding Label}" />
-                                                        <TextBox Text="{Binding Label}" Visibility="Collapsed"/>
+                                                        <TextBlock Text="{Binding Label}" Visibility="{Binding LabelVisibilityVisu}"/>
+                                                        <TextBox Text="{Binding Label}" Visibility="{Binding LabelVisibilityEdit}" TextChanged="TextBox_TextChanged" />
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>

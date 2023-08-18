@@ -176,6 +176,7 @@ namespace ARKRegionsEditor
         {
             saveCounter_++;
             buttonSaveRegions.IsEnabled = true;
+            BuildJsonRegionsData();
         }
 
         private void MapViewer_CommandEvent(object sender, CommandEventArgs e)
@@ -657,7 +658,7 @@ namespace ARKRegionsEditor
                 ConsoleWriteLine($"{regionsList_.Count} régions chargées");
                 ConsoleWriteLine($"{zones_ctr} zones chargées");
                 mapViewer.RescaleCanvas(mapViewer.Scale);
-                labelInfo.Text = $"{regionsList_.Count} régions chargés ({zones_ctr} zones)";
+                labelInfo.Text = $"{regionsList_.Count} régions chargées ({zones_ctr} zones)";
                 BuildJsonRegionsData();
                 tabControlMap.SelectedItem = tabItemRegions;
                 tabControlMain.SelectedItem = tabItemMap;
@@ -963,11 +964,17 @@ namespace ARKRegionsEditor
             }
             listviewZones.Tag = region;
             if (highlight)
-                labelInfo.Text = $"Zones chargées: {zonesList_.Count}, zones avec intersection : {zone_intersect}";
+                labelInfo.Text = $"Zones chargées: {zonesList_.Count}, zones avec intersections : {zone_intersect}";
         }
 
         private void listviewRegions_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // Si edition du nom d'une région en cours alors on bloque le changement de région
+            if (listviewRegions.SelectedItem != null && listviewRegions.Tag != null)
+            {
+                listviewRegions.SelectedItem = listviewRegions.Tag;
+                return;
+            }
             if (e.AddedItems.Count > 0)
             {
                 var region = e.AddedItems[0] as Region;
@@ -984,30 +991,98 @@ namespace ARKRegionsEditor
             }
         }
 
+        private void RegionEditNameMode(Region region, bool value)
+        {
+            listviewRegions.Tag = (value) ? region : null;
+            tabItemDataRegions.IsEnabled = !value;
+            tabItemRegions.IsEnabled = !value;
+            tabItemZones.IsEnabled = !value;
+            mapViewer.IsEnabled = !value;
+            region.EditLabel = value;
+            if (value == true)
+            {
+                region.NewLabel = region.Label;
+            }
+        }
+
+        private void MenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (listviewRegions.SelectedItem != null)
+            {
+                var region = listviewRegions.SelectedItem as Region;
+                if (region != null)
+                {
+                    var cmd = (sender as MenuItem).Tag as string;
+                    switch (cmd)
+                    {
+                        case "rename":
+                            {
+                                RegionEditNameMode(region, true);
+                                break;
+                            }
+
+                        case "delete":
+                            {
+                                regionsList_.Remove(region);
+                                IncSaveCounter();
+                                ConsoleWriteLine($"Suppression de la région '{region.Label}'");
+                                break;
+                            }
+                    }
+                }
+            }
+        }
+
+        private void listviewRegions_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            var region = listviewRegions.SelectedItem as Region;
+            if (region != null && region.EditLabel)
+            {
+                e.Handled = true;
+            }
+        }
+
         private void listviewRegions_KeyDown(object sender, KeyEventArgs e)
         {
             if (lockKeyboard_ != 0) return;
             // Ctrl-C
-            if (e.Key == Key.C && (e.KeyboardDevice.Modifiers & ModifierKeys.Control) != 0)
+            lockKeyboard_++;
+            var region = listviewRegions.SelectedItem as Region;
+            if (region != null)
             {
-                var region = listviewRegions.SelectedItem as Region;
-                if (region != null)
+                if (e.Key == Key.C && (e.KeyboardDevice.Modifiers & ModifierKeys.Control) != 0)
                 {
                     Clipboard.SetText(region.Label);
                     ConsoleWriteLine(region.Label);
                 }
-                lockKeyboard_++;
-            }
-            // Del
-            else if (e.Key == Key.Delete)
-            {
-                var region = listviewRegions.SelectedItem as Region;
-                if (region != null)
+                // Del
+                else if (e.Key == Key.Delete && region.EditLabel == false)
                 {
                     regionsList_.Remove(region);
+                    IncSaveCounter();
                     ConsoleWriteLine($"Suppression de la région '{region.Label}'");
+                    lockKeyboard_++;
                 }
-                lockKeyboard_++;
+                else if (e.Key == Key.Escape && region.EditLabel == true)
+                {
+                    RegionEditNameMode(region, false);
+                }
+                else if (e.Key == Key.Enter && region.EditLabel == true)
+                {
+                    RegionEditNameMode(region, false);
+                    ConsoleWriteLine($"Région '{region.Label}' renommé en '{region.NewLabel}'");
+                    region.Label = region.NewLabel;
+                    IncSaveCounter();
+                }
+            }
+        }
+
+        private void TextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            var region = listviewRegions.SelectedItem as Region;
+            if (region != null && region.EditLabel)
+            {
+                region.NewLabel = (sender as TextBox).Text;
             }
         }
 

@@ -1,13 +1,27 @@
 # ARK Wiki Regions Editor
 
-Version 1.6.0
+Version 1.6.0 (17/08/2023)
+
+Liste des cartes et données de régions intégrées:
+- The Island
+- Scorched Earth
+- Aberration
+- Extinction
+- Genesis: Part 1
+- Genesis: Part 2
+- The Center
+- Ragnarok
+- Valguero
+- Crystal Isles
+- Lost Island
+- Fjordu
 
 
 ## Introduction
 <img src="Images/Main1.jpg" width="300" title="Vue principale">
 <img src="Images/Main2.jpg" width="300" title="Vue principale">
 
-'ARK Wiki Regions Editor' est une application de création et d'édition de données de régions pour le wiki d'ARK https://ark.wiki.gg.
+'ARK Wiki Regions Editor' est une application de création et d'édition de données de régions pour le wiki du jeu ARK https://ark.wiki.gg.
 
 Cette application fonctionne sous Windows et est Open Source.
 https://github.com/gdfou/ARKWikiRegionsEditor.git
@@ -20,7 +34,7 @@ https://dotnet.microsoft.com/en-us/download/dotnet-framework/net48.
 Elle ne nécessite pas de procédure d'installation particulière.
 Télécharger le package `ARKWikiRegionsEditor_1_6_0.zip` à partir du Google Drive suivant:
 https://drive.google.com/drive/folders/1e6z73Em_N_vAToUhHqyrhsRUxNAUhamI?usp=drive_link
-<br>Et décompression le où vous voulez.
+<br>Et décompression là où vous voulez.
 
 
 ## Les régions sur le Wiki
@@ -43,7 +57,7 @@ Sur le Wiki les régions sont affichées dans la page principale d'une carte et 
 
 ### Régions et Zones
 Une région est composée d'une ou plusieurs zones.<br>
-Chaque zone définie un rectangle sur la carte.
+Chaque zone définit un rectangle sur la carte.
 
 ### Navigation dans la liste des régions
 - Utiliser la liste des régions pour choisir une région.<br>Cette liste peut être trié par nom, nombre de zones ou priorité d'affichage en cliquant sur le colonne correspondante.
@@ -58,7 +72,7 @@ Il est possible d'ajouter une carte à la liste des cartes.<br>Cet ajoute se fai
 1. - Choisir 'Nouvelle carte' dans la liste des carte.
    - Sélectionner le fichier image de la carte (jpg de préférence).
    - L'application va se fermer.
-2. - Ouvrir le fichier de config (il se trouve au même emplacement disque que l'application) et porte le nom `ARKWikiRegionsEditor.json`.
+2. - Ouvrir le fichier de configuration (il se trouve au même emplacement disque que l'application) et porte le nom `ARKWikiRegionsEditor.json`.
    - Modifier les infos de la nouvelle carte.
 ```
 {
@@ -92,10 +106,10 @@ Cette nouvelle est ajouter à la fin de la liste actuelle.
 
 ### Source des données
 
-Les données de régions viennent des données de biomes du jeu.
-Elles sont extraites à l'aide de l'outils *Purlovia* (https://github.com/arkutils/Purlovia) et sont stockées dans *Obelisk* (https://github.com/arkutils/Obelisk).
+Les données de régions viennent des données de biomes du jeu.<br>
+Elles sont extraites à l'aide de l'outil *Purlovia* (https://github.com/arkutils/Purlovia) et sont stockées dans *Obelisk* (https://github.com/arkutils/Obelisk).
 
-Nous n'allons pas entrer dans les détails de cet outils, allez voir le GitHub du projet pour de plus amples informations.
+Nous n'allons pas entrer dans les détails de cet outil, allez voir le GitHub du projet pour de plus amples informations.<br>
 Ici nous nous intéresseront uniquement aux données stockées dans *Obelisk*.
 
 ### Préparation
@@ -108,7 +122,7 @@ Copier *Obelisk* à partir de son GitHub https://github.com/arkutils/Obelisk :
 - Si vous avez choisi le zip, décompressez-le.
 
 Exécutez l'application `ARKWikiRegionsEdition`.<br>
-Elle va vous demandez de sélectionner le fichier de traduction du jeu.<br>
+Elle va vous demander de sélectionner le fichier de traduction du jeu.<br>
 Ce fichier est `ShooterGame.archive` et se trouve dans le sous-dossier `ShooterGame\Content\Localization\Game\fr` du jeu pour la traduction en français.<br>
 
 ### Choix de la carte
@@ -117,19 +131,20 @@ Si la carte n'est pas dans la liste, voir le chapitre `Ajout d'une nouvelle cart
 
 ### Importation
 
-Il maintenant temps de charger le fichier de biomes d'*Obelisk*.<br>
+Il est maintenant temps de charger le fichier de biomes d'*Obelisk*.<br>
 Mais qu'est-ce qu'un biome ? Et quelle est la différence avec une région ?<br>
-La notion de région n'existe pas dans le jeu, seul la notion de biome existe.<br>
+
+La notion de région n'existe pas dans le jeu, seule la notion de biome existe.<br>
 Un biome est un zone du jeu définie par des coordonnées 3D et des informations de météo (températures, vents).<br>
 Plusieurs biomes ayant le même nom forment une région.<br>
 L'application va donc analyser les données de biomes pour construire des données de régions exploitables par le wiki.<br>
 Cette analyse filtre les coordonnées et supprime les biomes en doublons.
 
-Pour trouvez le fichier de biomes correspondant à la carte sélectionnée, il faut chercher dans le sous-dossier `data\wiki`.<br>
+Pour trouver le fichier de biomes correspondant à la carte sélectionnée, il faut chercher dans le sous-dossier `data\wiki`.<br>
 Pour `Fjordur` par exemple, le fichier de biomes de trouve sous `data\wiki\FjordurOfficial-FjordurOfficial\FjordurOfficial`.<br>
 Les fichiers de biomes portent toujours le nom: `biomes.json`.<br>
-Si vous voulez que les noms de régions soient traduit, activer la case à coché `Traduction` avant de charger le biome.<br>
-Les opérations de traduction sont toujours possible à l'importation de biomes ou au chargement de données de régions.
+Si vous voulez que les noms de régions soient traduits, activer la case à cocher `Traduction` avant de charger le biome.<br>
+Les opérations de traduction sont toujours possibles à l'importation de biomes ou au chargement de données de régions.
 
 Résultat pour The Island:
 <img src="Images/ImportBiomes.jpg" title="Biomes de The Island">
@@ -141,7 +156,7 @@ Sauvegarder cette première liste de région en appuyant sur le bouton `Sauvegar
 Et on se retrouve dans le chapitre suivant pour l'édition des régions.
 
 
-## Edition de données de régions
+## Édition de données de régions
 
 Avec cette application, vous allez pouvoir modifier les zones d'une région pour simplifier le traitement par le wiki.<br>
 Commencer par sélectionner votre carte.
@@ -159,7 +174,7 @@ L'essentielle du travail de simplification consiste à modifier et/ou supprimer 
 
 ### Modification des zones d'une région
 
-#### Exemple 1 : Supprimer le recouvrement des deux zones
+#### Exemple 1 : Supprimer le recouvrement des deux zones et créer une nouvelle zone
 Nous allons prendre comme exemple les données de régions de *Valguero* après une importation des données de biomes avec traduction.
 <img src="Images/VagueroEdit1.jpg">
 
@@ -208,7 +223,7 @@ Ensuite éditez la nouvelle zone pour la placer dans la partie vide.<br>
 <img src="Images/VagueroEdit8.jpg">
 
 
-#### Exemple 2 : 
+#### Exemple 2 : Supprimer le recouvrement des deux zones et supprimer une zone
 Pour ce deuxième exemple, nous allons travailler une région un petit peu plus complexe.
 - Choisissez `The Island`.
 - Importer les données de biomes avec traduction (`Obelisk\data\wiki\TheIslandSubMaps`).
@@ -285,3 +300,7 @@ Ensuite pour afficher la carte des régions dans la page principale du DLC, ajou
 
 ## Annexes
 - Fichier de configuration
+
+WIKI IMAGE:
+
+[[Category:ARKWikiRegionsEditor images]]
