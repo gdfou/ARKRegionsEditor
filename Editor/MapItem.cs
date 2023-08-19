@@ -5,8 +5,6 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
-using System.Security.Policy;
 using System.Data;
 
 namespace ARKRegionsEditor
@@ -16,6 +14,7 @@ namespace ARKRegionsEditor
     {
         internal MapPosStruct topLeft;
         internal MapPosStruct bottomRight;
+        internal MapPosStruct move;
     }
     internal struct EdgesPixels
     {
@@ -34,6 +33,7 @@ namespace ARKRegionsEditor
         private Point posB_;
         private Rectangle highlight_;
         private Line[] edges_;
+        private Rectangle[] corners_;
         private Rectangle rect_;
         private Edges edgeEdit_;
         protected ContextMenu menu_;
@@ -53,6 +53,18 @@ namespace ARKRegionsEditor
             this.map_ = map;
             this.Zone = zone;
             scale_ = map.Scale;
+        }
+
+        protected Cursor GetCornerCursor(int index)
+        {
+            if (index == 0 || index == 2)
+            {
+                return Cursors.SizeNWSE; // Top-Left et Bottom-Right
+            }
+            else
+            {
+                return Cursors.SizeNESW; // Top-Right et Bottom-Left
+            }
         }
 
         public void BuildGeometry(Color color, int opacity)
@@ -93,13 +105,37 @@ namespace ARKRegionsEditor
             edges_[1].Cursor = Cursors.SizeWE; // Right
             edges_[2].Cursor = Cursors.SizeNS; // Bottom
             edges_[3].Cursor = Cursors.SizeWE; // Left
-
             foreach (var edge in edges_)
             {
                 edge.MouseLeftButtonDown += Edge_MouseLeftButtonDown;
                 edge.MouseLeftButtonUp += Edge_MouseLeftButtonUp;
                 edge.MouseMove += Edge_MouseMove;
                 Canvas.Children.Add(edge);
+            }
+
+            // Corners
+            corners_ = new Rectangle[4];
+            for (int i = 0; i < 4; i++)
+            {
+                corners_[i] = new Rectangle()
+                {
+                    Fill = Brushes.Transparent,
+                    Stroke = new SolidColorBrush(Colors.Yellow),
+                    StrokeThickness = 3,
+                    Visibility = Visibility.Collapsed,
+                    Width = 9,
+                    Height = 9,
+                    Tag = 4 + i,
+                    Cursor = GetCornerCursor(i),
+                    ToolTip = "Appuyer sur CTRL pour déplacer toute la zone"
+                };
+            };
+            foreach (var corner in corners_)
+            {
+                corner.MouseLeftButtonDown += Edge_MouseLeftButtonDown;
+                corner.MouseLeftButtonUp += Edge_MouseLeftButtonUp;
+                corner.MouseMove += Edge_MouseMove;
+                Canvas.Children.Add(corner);
             }
 
             // Menu
@@ -178,6 +214,8 @@ namespace ARKRegionsEditor
             highlight_.Visibility = Visibility.Collapsed;
             foreach (var edge in edges_)
                 edge.Visibility = Visibility.Collapsed;
+            foreach (var corner in corners_)
+                corner.Visibility = Visibility.Collapsed;
         }
 
         public void Highlight(Color color)
@@ -195,9 +233,14 @@ namespace ARKRegionsEditor
             }
         }
 
-        public void RescaleEdges()
+        protected void RescaleEdges()
         {
             var tp_lf_map = map_.MapSize.ConvertMapPointToPixel(new MapPos(edgeEdit_.topLeft));
+            if (edgeEdit_.move.lat != -1)
+            {
+                edgeEdit_.bottomRight.lat = edgeEdit_.topLeft.lat + edgeEdit_.move.lat;
+                edgeEdit_.bottomRight.lon = edgeEdit_.topLeft.lon + edgeEdit_.move.lon;
+            }
             var bm_rg_map = map_.MapSize.ConvertMapPointToPixel(new MapPos(edgeEdit_.bottomRight));
 
             EdgesPixels edges;
@@ -225,6 +268,18 @@ namespace ARKRegionsEditor
             edges_[Right].Y1 = edges.top;
             edges_[Right].X2 = edges.right;
             edges_[Right].Y2 = edges.bottom;
+
+            Canvas.SetLeft(corners_[Top], edges.left - corners_[Top].Width / 2);
+            Canvas.SetTop(corners_[Top], edges.top - corners_[Top].Height / 2);
+
+            Canvas.SetLeft(corners_[Right], edges.right - corners_[Right].Width / 2);
+            Canvas.SetTop(corners_[Right], edges.top - corners_[Right].Height / 2);
+
+            Canvas.SetLeft(corners_[Bottom], edges.right - corners_[Bottom].Width / 2);
+            Canvas.SetTop(corners_[Bottom], edges.bottom - corners_[Bottom].Height / 2);
+
+            Canvas.SetLeft(corners_[Left], edges.left - corners_[Left].Width / 2);
+            Canvas.SetTop(corners_[Left], edges.bottom - corners_[Left].Height / 2);
         }
 
         protected (Point, Point) ComputePosAB(MapZone zn)
@@ -234,7 +289,6 @@ namespace ARKRegionsEditor
             return (posA, posB);
         }
 
-        // Rename to Update ?
         public void Rescale(double scale)
         {
             scale_ = scale;
@@ -272,9 +326,14 @@ namespace ARKRegionsEditor
                     edgeEdit_.topLeft.lon = Zone.Pos.lon;
                     edgeEdit_.bottomRight.lat = Zone.Pos.lat + Zone.LatLength;
                     edgeEdit_.bottomRight.lon = Zone.Pos.lon + Zone.LonLength;
+                    
+                    edgeEdit_.move.lat = -1; // move non actif
+                    edgeEdit_.move.lon = -1;
 
                     foreach (var edge in edges_)
                         edge.Visibility = Visibility.Visible;
+                    foreach (var corner in corners_)
+                        corner.Visibility = Visibility.Visible;
                     editionMode_ = true;
                     RescaleEdges();
                     map_.SendCommand("StartEditZone", Zone);
@@ -303,6 +362,32 @@ namespace ARKRegionsEditor
                 {
                     ExecuteCommand("valid");
                 }
+                else if (e.Key == Key.Delete) // Menu 'delete'
+                {
+                    ExecuteCommand("delete");
+                }
+                else if (corners_[0].IsMouseOver) // Changement curseur pour le double mode du coin supérieur gauche
+                {
+                    if ((e.KeyboardDevice.Modifiers & ModifierKeys.Control) != 0)
+                    {
+                        corners_[0].Cursor = Cursors.SizeAll;
+                    }
+                }
+            }
+        }
+
+        // Attention cette event n'est pas lien directement lais est appellé par le 'ScrollViewer' de la carte
+        public void KeyUp(object sender, KeyEventArgs e)
+        {
+            if (editionMode_ == true)
+            {
+                if (corners_[0].IsMouseOver) // Changement curseur pour le double mode du coin supérieur gauche
+                {
+                    if ((e.KeyboardDevice.Modifiers & ModifierKeys.Control) == 0)
+                    {
+                        corners_[0].Cursor = GetCornerCursor(0);
+                    }
+                }
             }
         }
 
@@ -310,16 +395,38 @@ namespace ARKRegionsEditor
         {
             if (editionMode_ == true)
             {
-                int index = (int)(sender as Line).Tag;
-                edges_[index].CaptureMouse();
-                e.Handled = true;
+                int index = (int)(sender as Shape).Tag;
+                if (index >= 4)
+                {
+                    if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.LeftAlt))
+                    {
+                        corners_[index - 4].Cursor = Cursors.SizeAll;
+                        edgeEdit_.move.lat = edgeEdit_.bottomRight.lat - edgeEdit_.topLeft.lat;
+                        edgeEdit_.move.lon = edgeEdit_.bottomRight.lon - edgeEdit_.topLeft.lon;
+                    }
+                    corners_[index - 4].CaptureMouse();
+                    e.Handled = true;
+                }
+                else
+                {
+                    edges_[index].CaptureMouse();
+                    e.Handled = true;
+                }
             }
         }
 
         protected void Edge_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            int index = (int)(sender as Line).Tag;
-            if (edges_[index].IsMouseCaptured)
+            int index = (int)(sender as Shape).Tag;
+            if (index >= 4)
+            {
+                edgeEdit_.move.lat = -1;
+                edgeEdit_.move.lon = -1;
+                corners_[index - 4].ReleaseMouseCapture();
+                corners_[index - 4].Cursor = GetCornerCursor(index - 4);
+                e.Handled = true;
+            }
+            else if (edges_[index].IsMouseCaptured)
             {
                 edges_[index].ReleaseMouseCapture();
                 e.Handled = true;
@@ -328,17 +435,52 @@ namespace ARKRegionsEditor
 
         private void Edge_MouseMove(object sender, MouseEventArgs e)
         {
-            int index = (int)(sender as Line).Tag;
-            if (edges_[index].IsMouseCaptured)
-            {
-                // pixM = mouse pos in grid
-                var pixM = e.GetPosition(map_.gridMap);
-                // mapM = mouse pos in map
-                var mapM = map_.MapSize.ConvertPixelPointToMap(pixM.X, pixM.Y);
-                // snap to map grid
-                mapM.lat = (float)Math.Round(mapM.lat);
-                mapM.lon = (float)Math.Round(mapM.lon);
+            // pixM = mouse pos in grid
+            var pixM = e.GetPosition(map_.gridMap);
+            // mapM = mouse pos in map
+            var mapM = map_.MapSize.ConvertPixelPointToMap(pixM.X, pixM.Y);
+            // snap to map grid
+            mapM.lat = (float)Math.Round(mapM.lat);
+            mapM.lon = (float)Math.Round(mapM.lon);
 
+            int index = (int)(sender as Shape).Tag;
+            if (index >= 4)
+            {
+                if (corners_[index - 4].IsMouseCaptured)
+                {
+                    switch (index - 4)
+                    {
+                        case Top:
+                            {
+                                edgeEdit_.topLeft.lat = mapM.lat;
+                                edgeEdit_.topLeft.lon = mapM.lon;
+                                break;
+                            }
+                        case Right:
+                            {
+                                edgeEdit_.topLeft.lat = mapM.lat;
+                                edgeEdit_.bottomRight.lon = mapM.lon;
+                                break;
+                            }
+                        case Bottom:
+                            {
+                                edgeEdit_.bottomRight.lat = mapM.lat;
+                                edgeEdit_.bottomRight.lon = mapM.lon;
+                                break;
+                            }
+                        case Left:
+                            {
+                                edgeEdit_.bottomRight.lat = mapM.lat;
+                                edgeEdit_.topLeft.lon = mapM.lon;
+                                break;
+                            }
+                    }
+                    RescaleEdges();
+                    e.Handled = true;
+                }
+            }
+            else if (edges_[index].IsMouseCaptured)
+            {
                 // Move only dynamic lines
                 switch (index)
                 {
@@ -347,9 +489,9 @@ namespace ARKRegionsEditor
                             edgeEdit_.topLeft.lat = mapM.lat;
                             break;
                         }
-                    case Left:
+                    case Right:
                         {
-                            edgeEdit_.topLeft.lon = mapM.lon;
+                            edgeEdit_.bottomRight.lon = mapM.lon;
                             break;
                         }
                     case Bottom:
@@ -357,9 +499,9 @@ namespace ARKRegionsEditor
                             edgeEdit_.bottomRight.lat = mapM.lat;
                             break;
                         }
-                    case Right:
+                    case Left:
                         {
-                            edgeEdit_.bottomRight.lon = mapM.lon;
+                            edgeEdit_.topLeft.lon = mapM.lon;
                             break;
                         }
                 }

@@ -91,6 +91,17 @@ namespace ARKRegionsEditor
         
         private void ScrollViewer_KeyUp(object sender, KeyEventArgs e)
         {
+            if (EditMode == true && lockKeyboard_ > 0)
+            {
+                foreach (var zone in zones_)
+                {
+                    if (zone.EditMode == true)
+                    {
+                        zone.KeyUp(zone, e);
+                        break;
+                    }
+                }
+            }
             lockKeyboard_ = 0;
         }
 

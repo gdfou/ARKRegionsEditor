@@ -220,7 +220,7 @@ namespace ARKRegionsEditor
                         RemoveZones(e.Region);
                         CheckZones(e.Region);
                         e.Region.Update();
-                        LoadZones(e.Region);
+                        LoadZones(e.Region, true);
                         IncSaveCounter();
                         labelInfo.Text = $"Mise à jour de la région '{e.Region.Label}'";
                         break;
@@ -284,6 +284,7 @@ namespace ARKRegionsEditor
         {
             Console.WriteLine(text);
             textboxConsole.AppendText(text + Environment.NewLine);
+            textboxConsole.ScrollToEnd();
         }
 
         private string getSplitterPos()
@@ -427,7 +428,8 @@ namespace ARKRegionsEditor
 
         private void LoadRegionsQuery(string jsonString)
         {
-            if (MessageBox.Show("Cette opération va remplacer toutes les données de régions, voulez-vous continuer ?", "Charger des données de régions", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            // si liste régions vide alors pas de question
+            if ((regionsList_.Count == 0) || MessageBox.Show("Cette opération va remplacer toutes les données de régions, voulez-vous continuer ?", "Charger des données de régions", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
                 LoadRegionsFromJson(jsonString);
             }
@@ -476,7 +478,8 @@ namespace ARKRegionsEditor
 
         private void buttonLoadBiomes_Click(object sender, RoutedEventArgs e)
         {
-            if (MessageBox.Show("Cette opération va remplacer toutes les données de régions, voulez-vous continuer ?", "Charger un fichier de biomes", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            // si liste régions vide alors pas de question
+            if ((regionsList_.Count == 0) || MessageBox.Show("Cette opération va remplacer toutes les données de régions, voulez-vous continuer ?", "Charger un fichier de biomes", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
                 // Chargement à partir du lien d'un fichier externe
                 var openFileDialog = new Microsoft.Win32.OpenFileDialog()
@@ -938,13 +941,21 @@ namespace ARKRegionsEditor
             CheckIntersects(region);
         }
 
-        private void LoadZones(Region region, bool highlight=false)
+        private void ClearZones()
         {
             mapViewer.ClearZones();
+            zonesList_.Clear();
+        }
+
+        private void LoadZones(Region region, bool clear=true, bool highlight=false)
+        {
+            if (clear)
+            {
+                ClearZones();
+            }
             mapViewer.LoadZones(region);
             if (highlight)
                 mapViewer.ClearHighlightZones();
-            zonesList_.Clear();
             int zone_intersect = 0;
             foreach (var zone in region.zones)
             {
@@ -969,16 +980,27 @@ namespace ARKRegionsEditor
 
         private void listviewRegions_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Si edition du nom d'une région en cours alors on bloque le changement de région
-            if (listviewRegions.SelectedItem != null && listviewRegions.Tag != null)
+            if (listviewRegions.SelectedItems.Count == 1)
             {
-                listviewRegions.SelectedItem = listviewRegions.Tag;
-                return;
+                // Si edition du nom d'une région en cours alors on bloque le changement de région
+                if (listviewRegions.SelectedItem != null && listviewRegions.Tag != null)
+                {
+                    listviewRegions.SelectedItem = listviewRegions.Tag;
+                    return;
+                }
+                if (e.AddedItems.Count > 0)
+                {
+                    var region = e.AddedItems[0] as Region;
+                    LoadZones(region, true); // true => gestion des highlights de zone
+                }
             }
-            if (e.AddedItems.Count > 0)
+            else if(listviewRegions.SelectedItems.Count > 1)
             {
-                var region = e.AddedItems[0] as Region;
-                LoadZones(region, true); // true => gestion des highlights de zone
+                ClearZones();
+                foreach (Region region in listviewRegions.SelectedItems)
+                {
+                    LoadZones(region, false);
+                }
             }
         }
 
@@ -1007,12 +1029,35 @@ namespace ARKRegionsEditor
 
         private void MenuItem_Click(object sender, RoutedEventArgs e)
         {
-            if (listviewRegions.SelectedItem != null)
+            var cmd = (sender as MenuItem).Tag as string;
+            if (cmd == "add")
+            {
+                if (listviewRegions.SelectedItems.Count <= 1)
+                {
+                    var new_region = new Region("_Nouvelle région", true);
+                    regionsList_.Add(new_region);
+                    BuildRegionPriority();
+                    IncSaveCounter();
+                    listviewRegions.ScrollIntoView(new_region);
+                }
+                else // plusieures régions sont sélectionnées donc composition d'une nouvelle région à partir de la sélection
+                {
+                    var new_region = new Region("_Nouvelle région", false);
+                    foreach (Region region in listviewRegions.SelectedItems)
+                    {
+                        new_region.zones.AddRange(region.zones);
+                    }
+                    regionsList_.Add(new_region);
+                    BuildRegionPriority();
+                    IncSaveCounter();
+                    listviewRegions.ScrollIntoView(new_region);
+                }
+            }
+            else if (listviewRegions.SelectedItem != null)
             {
                 var region = listviewRegions.SelectedItem as Region;
                 if (region != null)
                 {
-                    var cmd = (sender as MenuItem).Tag as string;
                     switch (cmd)
                     {
                         case "rename":
@@ -1035,25 +1080,37 @@ namespace ARKRegionsEditor
 
         private void listviewRegions_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
-            var region = listviewRegions.SelectedItem as Region;
-            if (region != null && region.EditLabel)
+            e.Handled = true;
+            if (listviewRegions.SelectedItems.Count == 1)
             {
-                e.Handled = true;
+                var region = listviewRegions.SelectedItem as Region;
+                if (region != null && !region.EditLabel)
+                {
+                    menuItemRegionRename.IsEnabled = true;
+                    menuItemRegionDelete.IsEnabled = true;
+                    e.Handled = false;
+                }
+            }
+            else if (!String.IsNullOrEmpty(mapViewer.MapName))
+            {
+                menuItemRegionRename.IsEnabled = false;
+                menuItemRegionDelete.IsEnabled = false;
+                e.Handled = false;
             }
         }
 
         private void listviewRegions_KeyDown(object sender, KeyEventArgs e)
         {
-            if (lockKeyboard_ != 0) return;
-            // Ctrl-C
-            lockKeyboard_++;
+            if (lockKeyboard_ != 0 || (listviewRegions.SelectedItems.Count > 1)) return;
             var region = listviewRegions.SelectedItem as Region;
             if (region != null)
             {
+                // Ctrl-C
                 if (e.Key == Key.C && (e.KeyboardDevice.Modifiers & ModifierKeys.Control) != 0)
                 {
                     Clipboard.SetText(region.Label);
                     ConsoleWriteLine(region.Label);
+                    lockKeyboard_++;
                 }
                 // Del
                 else if (e.Key == Key.Delete && region.EditLabel == false)
@@ -1066,6 +1123,7 @@ namespace ARKRegionsEditor
                 else if (e.Key == Key.Escape && region.EditLabel == true)
                 {
                     RegionEditNameMode(region, false);
+                    lockKeyboard_++;
                 }
                 else if (e.Key == Key.Enter && region.EditLabel == true)
                 {
@@ -1073,6 +1131,7 @@ namespace ARKRegionsEditor
                     ConsoleWriteLine($"Région '{region.Label}' renommé en '{region.NewLabel}'");
                     region.Label = region.NewLabel;
                     IncSaveCounter();
+                    lockKeyboard_++;
                 }
             }
         }

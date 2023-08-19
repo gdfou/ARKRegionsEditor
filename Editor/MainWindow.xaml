@@ -101,7 +101,8 @@
                     </Grid.RowDefinitions>
                     <TabControl x:Name="tabControlMap" Grid.Column="0">
                         <TabItem x:Name="tabItemRegions" Header="Régions">
-                            <ListView x:Name="listviewRegions" SelectionMode="Single" 
+                            <ListView x:Name="listviewRegions" 
+                                      SelectionMode="Extended" 
                                       SelectionChanged="listviewRegions_SelectionChanged" 
                                       MouseDoubleClick="listviewRegions_MouseDoubleClick"
                                       KeyDown="listviewRegions_KeyDown" 
@@ -114,10 +115,11 @@
                                       DragLeave="listviewRegions_DragLeave"
                                       Drop="listviewRegions_Drop"
                                       ContextMenuOpening="listviewRegions_ContextMenuOpening">
-                                <ListView.ContextMenu >
+                                <ListView.ContextMenu>
                                     <ContextMenu>
-                                        <MenuItem Header="Renommer" Tag="rename" Click="MenuItem_Click"/>
-                                        <MenuItem Header="Supprimer" Tag="delete" Click="MenuItem_Click"/>
+                                        <MenuItem x:Name="menuItemRegionRename" Header="Renommer" Tag="rename" Click="MenuItem_Click"/>
+                                        <MenuItem x:Name="menuItemRegionDelete" Header="Supprimer" Tag="delete" Click="MenuItem_Click"/>
+                                        <MenuItem x:Name="menuItemRegionAdd" Header="Créer une région" Tag="add" Click="MenuItem_Click"/>
                                     </ContextMenu>
                                 </ListView.ContextMenu>
                                 <ListView.View>

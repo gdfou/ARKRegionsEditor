@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Navigation;
 
 namespace ARKRegionsEditor
 {
@@ -116,6 +117,21 @@ namespace ARKRegionsEditor
         {
             visibility_ = Visibility.Visible;
             zones = new List<MapZone>();
+        }
+
+        // Pour création d'une nouvelle région
+        public Region(string newRegion, bool createDefaultZone) : this()
+        {
+            Name = newRegion;
+            Label = newRegion;
+            if (createDefaultZone)
+            {
+                zones.Add(new MapZone()
+                {
+                    LatLength = 5,
+                    LonLength = 5
+                });
+            }
         }
 
         public Region(ObeliskJsonBiome biome) : this()
